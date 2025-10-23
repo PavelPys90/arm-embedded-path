@@ -42,38 +42,19 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-volatile uint32_t msTicks = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 /* USER CODE BEGIN PFP */
-void delay_ms(uint32_t ms);
-void GPIO_LED_Init(void);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Delay-Function by SysTick
-void delay_ms(uint32_t ms){
-	uint32_t startTicks = msTicks;
-	while ((msTicks - startTicks)<ms);
-}
-// GPIO PC13 (LED) init with CMSIS
-void GPIO_LED_Init(void){
-	// Activate Clock for GPIOC
-	RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
-
-	// Pin-Configuration; Push-Pull, 2 MHz
-	// CNF13[1:0] = 00 (Push-Pull Output)
-	// MODE13[1:0] = 10 (Output 2MHz)
-	GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13);
-	GPIOC->CRH |= GPIO_CRH_MODE13_1;
-	// LED Config (PC13 on High)
-	GPIOC->BSRR = GPIO_BSRR_BS13;
-}
 /* USER CODE END 0 */
 
 /**
@@ -100,8 +81,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  SysTick_Config(SystemCoreClock / 1000);
-  GPIO_LED_Init();
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -117,12 +97,6 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	// LED On
-	  GPIOC->BSRR = GPIO_BSRR_BR13;
-	  delay_ms(1000);
-
-	  GPIOC->BSRR = GPIO_BSRR_BS13;
-	  delay_ms(2000);
   }
   /* USER CODE END 3 */
 }

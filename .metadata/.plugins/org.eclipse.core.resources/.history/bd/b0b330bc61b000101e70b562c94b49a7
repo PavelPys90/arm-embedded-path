@@ -122,7 +122,6 @@ int main(void)
 	  delay_ms(1000);
 
 	  GPIOC->BSRR = GPIO_BSRR_BS13;
-	  delay_ms(2000);
   }
   /* USER CODE END 3 */
 }

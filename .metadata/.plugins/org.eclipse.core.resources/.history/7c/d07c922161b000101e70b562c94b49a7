@@ -55,7 +55,10 @@ void GPIO_LED_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+// SysTick Interrupt Handler for ms counter
+void SysTick_Handler(void){
+	msTicks++;
+}
 // Delay-Function by SysTick
 void delay_ms(uint32_t ms){
 	uint32_t startTicks = msTicks;
@@ -122,7 +125,6 @@ int main(void)
 	  delay_ms(1000);
 
 	  GPIOC->BSRR = GPIO_BSRR_BS13;
-	  delay_ms(2000);
   }
   /* USER CODE END 3 */
 }
