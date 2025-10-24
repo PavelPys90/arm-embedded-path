@@ -8,7 +8,9 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{tabu}
-
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.45,0.45,0.45}
@@ -304,27 +306,25 @@ GPIOC->BSRR = GPIO_BSRR_BR13;
 	HAL typically requires more lines of code due to function calls and initializations.
 \end{frame}
 \begin{frame}{CMSIS vs HAL}
-	\begin{table}
-		\footnotesize\centering
-		\begin{tabular}{@{} l l l @{}}
-			\toprule
-			\textbf{Aspect} & \textbf{CMSIS / Register} & \textbf{HAL (STM32)} \\
-			\midrule
-			Performance & typically 3–10× faster\textsuperscript{*} & slower (wrapper calls) \\
-			Code size (blink) & \(\sim\)3–6 KB & \(\sim\)15–25 KB \\
-			Learning curve & steeper & flatter \\
-			Readability & terse/technical & very readable \\
-			Portability & vendor-agnostic concepts; device headers per family & portable within STM32 family \\
-			Debugging & transparent (no hidden layers) & black-boxy at times \\
-			Control & 100\% & limited by API \\
-			\bottomrule
-		\end{tabular}
-		\caption{CMSIS vs HAL (rule-of-thumb; depends on modules/optimizations)}
-	\end{table}
+	\small
+	\begin{tabularx}{\linewidth}{@{} l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X @{}}
+		\toprule
+		\textbf{Aspect} & \textbf{CMSIS / Register} & \textbf{HAL (STM32)} \\
+		\midrule
+		Performance & typically $3$--$10\times$ faster\textsuperscript{*} & slower (wrapper calls) \\
+		Code size (blink) & $\sim$3--6 KB & $\sim$15--25 KB \\
+		Learning curve & steeper & flatter \\
+		Readability & terse / technical & very readable \\
+		Portability & vendor-agnostic concepts; device headers per family & portable within STM32 family \\
+		Debugging & transparent (no hidden layers) & black-boxy at times \\
+		Control & 100\% & limited by API \\
+		\bottomrule
+	\end{tabularx}
 	
-	\footnotesize\textsuperscript{*}\,Can be much more in tight loops/ISRs; depends on inlining and wait states.
-	
+	\medskip
+	{\footnotesize\textsuperscript{*}\,Can be much more in tight loops/ISRs, depends on inlining and wait states.}
 \end{frame}
+
 \begin{frame}[fragile]
 	\frametitle{CMSIS vs HAL}
 	\framesubtitle{Why should you learn CMSIS?}
@@ -506,5 +506,496 @@ void delay_ms(uint32_t ms){
 	\textbf{System independence}: If one uses int, the compiler might allocate different memory sizes (e.g., 2 bytes on a 16-bit system vs. 4 bytes on a 32-bit system). uint32\_t ensures that the data type is always exactly 32 bits, regardless of the architecture.\\
 	\vspace{0.2cm}
 	\textbf{Hardware registers}: When programming microcontrollers such as an STM32, one often needs to work with hardware registers that have a fixed bit width (e.g., 32 bits). uint32\_t fits perfectly and facilitates bit manipulation.\\
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{Practice}
+	\framesubtitle{Functional Architecture and Logic}
+	This example utilizes the internal clock source.
+	\begin{lstlisting}[language=C]
+void SystemClock_Config(void){
+	RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+	RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+			
+	// HSI as oscillator
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+	// No PLL used
+	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+}
+	\end{lstlisting}
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{Practice}
+	\framesubtitle{Functional Architecture and Logic}
+	\begin{itemize}
+		\item Configures the internal 8MHz oscillator (HSI)
+		\item No clock division for buses
+		\item Simplest clock configuration
+	\end{itemize}
+	\begin{lstlisting}[language=C]
+SysTick_Config(SystemCoreClock / 1000);
+	\end{lstlisting}
+	Configures the SysTick timer for an interrupt every 1ms.\\
+	SystemCoreClock / 1000 divides the CPU clock frequency by 1000 for 1ms intervals. During each interrupt, msTicks is incremented.
+\end{frame}
+\begin{frame}{Practice}
+	{Functional Architecture and Logic}
+	What happens if the clock configuration is not performed or is performed incorrectly?\\
+	\textbf{SystemClock\_Config()}:\\
+	This function configures the system clock. Without it, the microcontroller runs with the default clock (e.g., internal HSI oscillator), but potentially not at the expected frequency.\\
+	\vspace{0.2cm}
+	Specifically, it enables the HSI (Internal High-Speed Clock) and sets the clock frequency for the CPU and peripherals.\\
+	\vspace{0.2cm}
+	Without clock configuration, the clock might be too slow or might not run at all, causing the microcontroller to malfunction.
+\end{frame}
+\begin{frame}{Practice}
+	{Functional Architecture and Logic}
+	\textbf{SysTick\_Config()}:\\
+	This function configures the SysTick timer, which is required for the delay\_ms function. Without it, msTicks is not incremented, and the delay function would wait indefinitely.\\
+	\vspace{0.2cm}
+	\textbf{GPIO\_LED\_Init()}:\\
+	This function activates the clock for GPIOC via RCC->APB2ENR |= RCC\_APB2ENR\_IOPCEN.   
+	For the GPIOC clock to be activated, the RCC (Reset and Clock Control) module itself must be properly clocked. This is ensured by SystemClock\_Config().  
+	Without the system clock, setting the RCC\_APB2ENR\_IOPCEN bit might have no effect because the RCC module is not operational.
+\end{frame}
+\begin{frame}{Practice}
+	{Functional Architecture and Logic}
+	\begin{block}{Summary}
+		Without clock configuration, the microcontroller remains in a reset state or operates with an unconfigured clock, resulting in no peripherals (including GPIO) functioning. The GPIO initialization assumes that the system clock has already been configured.
+	\end{block}
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{Practice}
+	\framesubtitle{Functional Architecture and Logic}
+	\begin{lstlisting}[language=C]
+void GPIO_LED_Init(void){
+// Enable clock
+RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+			
+// Configure pin
+GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13);
+GPIOC->CRH |= GPIO_CRH_MODE13_1;
+			
+// Turn off LED initially
+GPIOC->BSRR = GPIO_BSRR_BS13;
+}
+	\end{lstlisting}
+\end{frame}
+\begin{frame}{Practice}{Functional Architecture and Logic}
+	\textbf{Enable GPIOC clock (RCC\_APB2ENR)}
+	\medskip
+	
+	\texttt{RCC->APB2ENR |= RCC\_APB2ENR\_IOPCEN}
+	
+	\medskip
+	Enables the peripheral clock for \textbf{GPIO port C}. The bit lives in the
+	STM32 reference manual under \emph{RCC\_APB2ENR — APB2 peripheral clock enable register}
+	(field \textbf{IOPCEN}).
+	
+	\medskip
+	The compound operator \texttt{|=} performs a \emph{read–modify–write}:
+	\begin{enumerate}
+		\item Read the current value of \texttt{RCC->APB2ENR}.
+		\item OR it with the mask \texttt{RCC\_APB2ENR\_IOPCEN}.
+		\item Write the result back to \texttt{RCC->APB2ENR}.
+	\end{enumerate}
+	
+	\smallskip
+	\textit{Note:} \texttt{RCC\_APB2ENR\_IOPCEN} equals \texttt{(1u << 4)} (i.e., only bit~4 set).
+\end{frame}
+\begin{frame}{Practice}{Functional Architecture and Logic}
+	\textbf{Why not use \texttt{=}?}
+	\medskip
+	
+	The advantage of \texttt{|=} is that it \textbf{sets exactly one bit} and \textbf{leaves all other bits untouched}.
+	
+	\medskip
+	If you wrote \texttt{RCC->APB2ENR = RCC\_APB2ENR\_IOPCEN} you would:
+	\begin{itemize}
+		\item enable GPIOC,
+		\item \textbf{but clear every other bit} in the register — disabling any APB2 peripheral that was previously enabled (AFIO, GPIOA/B, ADC1, \dots).
+	\end{itemize}
+	
+	\medskip
+	\textbf{Conclusion:}
+	\begin{itemize}
+		\item use \texttt{|=} to \textbf{set} bits,
+		\item use \texttt{\&= \textasciitilde mask} to \textbf{clear} bits (e.g., \texttt{RCC->APB2ENR \&= \textasciitilde RCC\_APB2ENR\_IOPCEN;}).
+	\end{itemize}
+\end{frame}
+\begin{frame}{Practice}{Functional Architecture and Logic}
+	\textbf{About the macro}
+	\medskip
+	
+	\texttt{RCC\_APB2ENR\_IOPCEN} is a descriptive macro provided by STMicroelectronics in the device header.
+	It expands to the bit mask \texttt{(1u << 4)}, i.e., only bit~4 is set.
+	
+	\medskip
+	Therefore the following are \textbf{equivalent}:
+	\begin{itemize}
+		\item \texttt{RCC->APB2ENR |= (1u << 4);}
+		\item \texttt{RCC->APB2ENR |= RCC\_APB2ENR\_IOPCEN;}
+	\end{itemize}
+	
+	Using the named macro is \textbf{clearer} and often more \textbf{portable} across STM32 families,
+	where bit positions may differ.
+	
+	\medskip
+	\textit{Good practice:} enable the port clock \emph{before} writing any GPIO registers for that port.
+\end{frame}
+\begin{frame}[fragile]{Practice}{Bit-Masking: Clear Bits Operation}
+	\textbf{Why \&= \textasciitilde( ... )?}\\
+	This is a "clear bits" step:
+	\begin{itemize}
+		\item \texttt{GPIO\_CRH\_CNF13 | GPIO\_CRH\_MODE13} creates a mask covering all 4 bits of Pin 13 (CNF + MODE).
+		\item \texttt{\textasciitilde(...)} inverts the mask $\rightarrow$ ones everywhere, except these 4 bits (there 0).
+		\item \texttt{\&=} with this inverted mask sets exactly these 4 bits to 0, leaving all other bits unchanged.
+	\end{itemize}
+	\textbf{Purpose:} Clear the 4 configuration bits of PC13 so no old state remains.
+	\medskip
+	
+	\texttt{GPIOC->CRH \&= \textasciitilde(0xFu << 20);}
+\end{frame}
+\begin{frame}{Practice}{Pin Configuration: CNF and MODE Bits}
+	\textbf{Each GPIO pin uses 4 bits: [CNF1 CNF0 MODE1 MODE0]}
+	\medskip
+	
+	\textbf{MODE[1:0] (outputs speed / input select):}
+	\begin{itemize}
+		\item 00 = Input mode
+		\item 01 = Output 10\,MHz
+		\item 10 = Output 2\,MHz
+		\item 11 = Output 50\,MHz
+	\end{itemize}
+	
+	\textbf{CNF[1:0] (depends on MODE):}
+	\begin{itemize}
+		\item \textbf{If MODE=00 (input):} 00=Analog,\; 01=Floating,\; 10=Pull-up/Down,\; 11=Reserved
+		\item \textbf{If MODE$\neq$00 (output):} 00=General-Purpose Push-Pull,\; 01=General-Purpose Open-Drain,\\
+		10=Alternate-Function Push-Pull,\; 11=Alternate-Function Open-Drain
+	\end{itemize}
+\end{frame}
+\begin{frame}{Practice}{GPIO Reset State \& Safe Pattern}
+	\textbf{After reset:}
+	\begin{itemize}
+		\item All GPIOs: \texttt{MODE=00} (Input), \texttt{CNF=01} (Floating input)
+		\item Debug pins (JTAG/SWD) are mapped to debug by default (free via \texttt{AFIO\_MAPR})
+	\end{itemize}
+	
+	\textbf{Why this matters:}
+	\begin{itemize}
+		\item Setting only \texttt{MODE} leaves \texttt{CNF} as-is.
+		\item Example: \texttt{MODE=10} with leftover \texttt{CNF=01} $\Rightarrow$ \textbf{general-purpose open-drain output}
+		(not invalid, but often unintended for LEDs; cannot actively drive HIGH without pull-up).
+	\end{itemize}
+	
+	\textbf{Safe approach (clean-then-set):}
+	\begin{itemize}
+		\item \texttt{GPIOC->CRH \&= \textasciitilde(0xFu << 20);} \quad // clear CNF:MODE for PC13
+		\item \texttt{GPIOC->CRH |=  (0x2u << 20);} \quad // CNF=00, MODE=10 $\Rightarrow$ Output 2\,MHz push-pull
+	\end{itemize}
+	
+	\textbf{Key takeaway:} Always \texttt{Clock $\rightarrow$ Clear $\rightarrow$ Set}.
+\end{frame}
+\begin{frame}{Practice}{Setting MODE Bits – Risky Approach}
+	\textbf{Make PC13 an Output @ 2\,MHz (keep CNF unchanged)}
+	\medskip
+	
+	\texttt{GPIOC->CRH |= GPIO\_CRH\_MODE13\_1;}
+	
+	\medskip
+	What this does:
+	\begin{itemize}
+		\item \texttt{GPIO\_CRH\_MODE13\_1 = 0x00200000} sets bit 21
+		\item Result: \texttt{MODE13 = 10b} → Output 2\,MHz
+		\item \textcolor{red}{\textbf{Problem:}} CNF bits are NOT modified!
+	\end{itemize}
+	
+	\textbf{Why is this risky?}
+	\begin{itemize}
+		\item After reset: CNF=01, MODE=00
+		\item After this line: CNF=01, MODE=10 → invalid config!
+	\end{itemize}
+	
+	\textbf{Safe only if:} CNF was already set correctly before.
+\end{frame}
+\begin{frame}[fragile]{Practice}{Best Practice: Clean-then-Set Pattern}
+	\textbf{Recommended approach (always safe):}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+// Clear all 4 bits (CNF + MODE)
+GPIOC->CRH &= ~(0xFu << 20);
+		
+// Set new configuration
+GPIOC->CRH |= (0x2u << 20);
+	\end{lstlisting}
+	
+	\textbf{What happens:}
+	\begin{itemize}
+		\item \texttt{0xFu << 20 = 0x00F00000} masks bits 23..20
+		\item Clear these 4 bits, keep all others
+		\item \texttt{0x2u << 20 = 0x00200000} sets CNF=00, MODE=10
+	\end{itemize}
+	
+	\textbf{Calculation:} PC13 in CRH at $(13-8) \times 4 = 20$
+\end{frame}
+\begin{frame}[fragile]{Practice}{Complete Example: PC13 Configuration}
+	\textbf{Configure PC13 as Output Push-Pull, 2\,MHz}
+	
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+// 1. Enable GPIO Clock (CRITICAL!)
+RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+		
+// 2. Clear PC13 config (bits 23..20)
+GPIOC->CRH &= ~(0xFu << 20);
+		
+// 3. Set: CNF=00, MODE=10 (2 MHz)
+GPIOC->CRH |= (0x2u << 20);
+	\end{lstlisting}
+	
+	\textbf{Three essential steps:}
+	\begin{enumerate}
+		\item Enable Clock – without this, writes are ignored!
+		\item Clear – remove old configuration
+		\item Set – apply new configuration
+	\end{enumerate}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Bit Position Calculation}
+	\textbf{General Formula:}\\
+	\texttt{value = ((CNF << 2) | MODE) << offset}
+	
+	\medskip
+	\textbf{Offset Calculation:}
+	\begin{itemize}
+		\item \textbf{CRL (pins 0..7):} \texttt{offset = pin\_number * 4}
+		\item \textbf{CRH (pins 8..15):} \texttt{offset = (pin\_number - 8) * 4}
+	\end{itemize}
+	
+	\textbf{Examples:}
+	\begin{itemize}
+		\item PA3: CRL, offset = $3 \times 4 = 12$
+		\item PC13: CRH, offset = $(13-8) \times 4 = 20$
+		\item PB15: CRH, offset = $(15-8) \times 4 = 28$
+	\end{itemize}
+	
+	\textbf{PA3 Output PP, 50 MHz:}\\
+	\texttt{GPIOA->CRL \&= \textasciitilde(0xFu << 12);}\\
+	\texttt{GPIOA->CRL |= (0x3u << 12);}
+\end{frame}
+\begin{frame}{Reference}{Quick Reference}
+	\begin{center}
+		\small
+		\begin{tabular}{|c|l|l|}
+			\hline
+			\textbf{CNF} & \textbf{Output (MODE$\neq$00)} & \textbf{Input (MODE=00)} \\ \hline
+			00 & Push-Pull & Analog \\ \hline
+			01 & Open-Drain & Floating \\ \hline
+			10 & AF Push-Pull & Pull-up/-down \\ \hline
+			11 & AF Open-Drain & Reserved \\ \hline
+		\end{tabular}
+	\end{center}
+	
+	\medskip
+	\textbf{Common Pitfalls:}
+	\begin{itemize}
+		\item Forgetting to enable GPIO clock
+		\item Not clearing CNF+MODE before setting
+		\item Assuming pins are in known state after reset
+	\end{itemize}
+	
+	\textbf{Key Takeaway:} Always \texttt{Clock → Clear → Set}
+\end{frame}
+% Slide 1: BSRR Register Overview
+\begin{frame}{Practice}{GPIO Bit Set/Reset Register (BSRR)}
+	\textbf{What is BSRR?}
+	\begin{itemize}
+		\item \textbf{B}it \textbf{S}et/\textbf{R}eset \textbf{R}egister
+		\item 32-bit write-only register
+		\item Allows atomic set and reset of GPIO pins
+		\item No read-modify-write needed → interrupt-safe!
+	\end{itemize}
+	
+	\medskip
+	\textbf{Register Layout (32 bits):}
+	\begin{center}
+		\texttt{[BR15..BR0][BS15..BS0]}\\
+		\texttt{[31....16][15.....0]}
+	\end{center}
+	
+	\medskip
+	\textbf{Two sections:}
+	\begin{itemize}
+		\item \textbf{Bits 0-15 (BSy):} Set bit y to HIGH (1)
+		\item \textbf{Bits 16-31 (BRy):} Reset bit y to LOW (0)
+	\end{itemize}
+\end{frame}
+\begin{frame}{Practice}{BSRR Operation Principle}
+	\textbf{Key concept:} Write 1 to trigger action, 0 is ignored
+	
+	\medskip
+	\textbf{To SET a pin HIGH:}
+	\begin{itemize}
+		\item Write 1 to corresponding BS bit (bits 0-15)
+		\item Example: Set PC13 → write 1 to bit 13
+	\end{itemize}
+	
+	\medskip
+	\textbf{To RESET a pin LOW:}
+	\begin{itemize}
+		\item Write 1 to corresponding BR bit (bits 16-31)
+		\item Example: Reset PC13 → write 1 to bit 29 (16+13)
+	\end{itemize}
+	
+	\medskip
+	\textbf{Multiple pins simultaneously:}
+	\begin{itemize}
+		\item Can set and reset different pins in same write
+		\item Example: \texttt{GPIOC->BSRR = (1<<13) | (1<<(16+5));}
+		\item Sets PC13 HIGH, resets PC5 LOW – atomically!
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Setting PC13 to HIGH}
+	\textbf{Set PC13 to logical 1 (HIGH):}
+	
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		GPIOC->BSRR = GPIO_BSRR_BS13;
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{What happens:}
+	\begin{itemize}
+		\item \texttt{GPIO\_BSRR\_BS13 = 0x00002000} (bit 13 set)
+		\item Writes 1 to bit 13 of BSRR
+		\item Hardware sets PC13 output to HIGH
+		\item All other pins remain unchanged
+	\end{itemize}
+	
+	\medskip
+	\textbf{Bit calculation:}
+	\begin{itemize}
+		\item Pin 13 → BS13 → bit position 13
+		\item $2^{13} = 8192 = 0x2000$
+		\item Binary: \texttt{0000\_0000\_0000\_0000\_0010\_0000\_0000\_0000}
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Resetting PC13 to LOW}
+	\textbf{Reset PC13 to logical 0 (LOW):}
+	
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		GPIOC->BSRR = GPIO_BSRR_BR13;
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{What happens:}
+	\begin{itemize}
+		\item \texttt{GPIO\_BSRR\_BR13 = 0x20000000} (bit 29 set)
+		\item Writes 1 to bit 29 of BSRR (16 + 13)
+		\item Hardware resets PC13 output to LOW
+		\item All other pins remain unchanged
+	\end{itemize}
+	
+	\medskip
+	\textbf{Bit calculation:}
+	\begin{itemize}
+		\item Pin 13 → BR13 → bit position 16+13 = 29
+		\item $2^{29} = 536870912 = 0x20000000$
+		\item Binary: \texttt{0010\_0000\_0000\_0000\_0000\_0000\_0000\_0000}
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{BSRR vs ODR: Why use BSRR?}
+	\textbf{Alternative: Using ODR (Output Data Register)}
+	
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		GPIOC->ODR |= (1 << 13);   // Set HIGH
+		GPIOC->ODR &= ~(1 << 13);  // Reset LOW
+	\end{lstlisting}
+	
+	\textbf{Problem with ODR:} Read-Modify-Write (RMW)
+	\begin{itemize}
+		\item Read → Modify → Write (3 steps)
+		\item Not atomic → race condition risk!
+	\end{itemize}
+	
+	\textbf{Advantage of BSRR:} Single write operation
+	\begin{itemize}
+		\item Atomic → interrupt-safe
+		\item Faster (1 instruction vs 3+)
+		\item No critical section needed
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Practical BSRR Examples}
+	\textbf{Toggle LED on PC13:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		// LED ON (active-low)
+		GPIOC->BSRR = GPIO_BSRR_BR13;
+		
+		// LED OFF
+		GPIOC->BSRR = GPIO_BSRR_BS13;
+	\end{lstlisting}
+	
+	\textbf{Multiple pins simultaneously:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		// Set PC13 HIGH, reset PC14 LOW
+		GPIOC->BSRR = GPIO_BSRR_BS13 | GPIO_BSRR_BR14;
+	\end{lstlisting}
+	
+	\textbf{Why this is powerful:}
+	\begin{itemize}
+		\item Both operations in single write cycle
+		\item No intermediate states
+		\item Perfect for synchronized outputs
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Common BSRR Usage Patterns}
+	\textbf{Pattern 1: Simple pin control}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		#define LED_ON()  GPIOC->BSRR = GPIO_BSRR_BR13
+		#define LED_OFF() GPIOC->BSRR = GPIO_BSRR_BS13
+	\end{lstlisting}
+	
+	\textbf{Pattern 2: Conditional set/reset}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		if (condition) {
+			GPIOC->BSRR = GPIO_BSRR_BS13;
+		} else {
+			GPIOC->BSRR = GPIO_BSRR_BR13;
+		}
+	\end{lstlisting}
+	
+	\textbf{Pattern 3: Clock pulse}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		GPIOC->BSRR = GPIO_BSRR_BS13;  // HIGH
+		GPIOC->BSRR = GPIO_BSRR_BR13;  // LOW
+	\end{lstlisting}
+\end{frame}
+\begin{frame}{Reference}{BSRR Quick Reference}
+	\textbf{BSRR Bit Layout:}
+	\begin{center}
+		\small
+		\begin{tabular}{|c|c|l|}
+			\hline
+			\textbf{Bits} & \textbf{Name} & \textbf{Function} \\ \hline
+			0-15 & BSy & Set pin y to HIGH (write 1) \\ \hline
+			16-31 & BRy & Reset pin y to LOW (write 1) \\ \hline
+		\end{tabular}
+	\end{center}
+	
+	\medskip
+	\textbf{Quick formulas:}
+	\begin{itemize}
+		\item Set pin n HIGH: \texttt{BSRR = (1 << n)}
+		\item Reset pin n LOW: \texttt{BSRR = (1 << (16+n))}
+	\end{itemize}
+	
+	\medskip
+	\textbf{Best Practices:}
+	\begin{itemize}
+		\item Always prefer BSRR over ODR for pin control
+		\item Use CMSIS macros (GPIO\_BSRR\_BSn/BRn) for clarity
+		\item BSRR is write-only – reading returns 0
+		\item Setting both BS and BR for same pin: BR has priority
+	\end{itemize}
+	
+	\medskip
+	\textbf{When to use ODR:} Only when reading current output state is needed
 \end{frame}
 \end{document}
