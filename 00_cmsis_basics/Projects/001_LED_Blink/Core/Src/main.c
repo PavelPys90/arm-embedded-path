@@ -62,17 +62,42 @@ void delay_ms(uint32_t ms){
 	while ((msTicks - startTicks)<ms);
 }
 // GPIO PC13 (LED) init with CMSIS
-void GPIO_LED_Init(void){
-	// Activate Clock for GPIOC
-	RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+void GPIO_LED_Init(void) {
+    // ==========================================================================
+    // CLOCK CONFIGURATION - Enable GPIO Port C clock
+    // ==========================================================================
 
-	// Pin-Configuration; Push-Pull, 2 MHz
-	// CNF13[1:0] = 00 (Push-Pull Output)
-	// MODE13[1:0] = 10 (Output 2MHz)
-	GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13);
-	GPIOC->CRH |= GPIO_CRH_MODE13_1;
-	// LED Config (PC13 on High)
-	GPIOC->BSRR = GPIO_BSRR_BS13;
+    // APPROACH 1: Using STM32 HAL macros (recommended for readability)
+    RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+
+    // APPROACH 2: Direct bit manipulation (sets bit 4)
+    // RCC->APB2ENR |= (1u << 4);
+
+    // ==========================================================================
+    // PIN CONFIGURATION - Configure PC13 as Push-Pull Output, 2MHz
+    // ==========================================================================
+
+    // APPROACH 1: Using STM32 HAL macros (recommended)
+    // Clear MODE13 and CNF13 bits (bits 20-23 for PC13 in CRH register)
+    GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13);
+    // Set MODE13 to 10 (2MHz output), CNF13 remains 00 (Push-Pull)
+    GPIOC->CRH |= GPIO_CRH_MODE13_1;
+
+    // APPROACH 2: Direct bit manipulation
+    // Clear all 4 configuration bits for PC13 (bits 20-23)
+    // GPIOC->CRH &= ~(0xFu << 20);
+    // Set configuration: CNF=00, MODE=10 (0b0010 = 0x2)
+    // GPIOC->CRH |= (0x2u << 20);
+
+    // ==========================================================================
+    // INITIAL STATE - Set LED to OFF state (PC13 high for active-low LED)
+    // ==========================================================================
+
+    // Set PC13 to HIGH (LED off for active-low configuration)
+    GPIOC->BSRR = GPIO_BSRR_BS13;
+
+    // Alternative direct bit manipulation:
+    // GPIOC->BSRR = (1u << 13);
 }
 /* USER CODE END 0 */
 
@@ -119,10 +144,10 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	// LED On
 	  GPIOC->BSRR = GPIO_BSRR_BR13;
-	  delay_ms(1000);
+	  delay_ms(500);
 
 	  GPIOC->BSRR = GPIO_BSRR_BS13;
-	  delay_ms(2000);
+	  delay_ms(500);
   }
   /* USER CODE END 3 */
 }
