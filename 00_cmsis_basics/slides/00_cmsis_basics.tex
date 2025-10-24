@@ -1,0 +1,510 @@
+% Showcase Präsentation mit SimSchoolDark Theme
+\documentclass{beamer}
+
+% Theme laden
+\usetheme{SimSchoolDark}
+
+% Für Python Code Highlighting
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabu}
+
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.45,0.45,0.45}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},
+	commentstyle=\color{codegreen}\itshape,
+	keywordstyle=\color{magenta}\bfseries,
+	stringstyle=\color{codepurple},
+	numberstyle=\tiny\color{codegray},
+	basicstyle=\ttfamily\small,  % kompakter als footnotesize, aber noch gut lesbar
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=none,                % ich empfehle in Beamer lieber keine Zeilennummern
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=4,                   % einheitlich 4 Spaces für Tabs
+	frame=single,                % optional: Rahmen um den Code
+	rulecolor=\color{gray!50},   % dezente Rahmenfarbe
+	aboveskip=5pt,
+	belowskip=5pt,
+	xleftmargin=4pt, xrightmargin=4pt,
+	columns=fullflexible         % sorgt für gleichmäßige Zeichenabstände
+}
+
+\lstset{style=mystyle}
+
+% Python Code Style
+%\lstset{
+%	language=Python,
+%	basicstyle=\ttfamily\small,
+%	keywordstyle=\color{simschooldarkest}\bfseries,
+%	stringstyle=\color{simschoolmedium},
+%	commentstyle=\color{simschoollight}\itshape,
+%	numberstyle=\tiny\color{simschoollight},
+%	numbers=left,
+%	breaklines=true,
+%	frame=single,
+%	rulecolor=\color{simschoolmedium},
+%	backgroundcolor=\color{simschoolbg!50},
+%	showstringspaces=false,
+%	tabsize=4
+%}
+
+% Präsentationsinfos
+\title{ARM-Embedded-Path}
+\subtitle{CMSIS-Basics}
+\author{Pavel Pys}
+\date{\today}
+%\institute{}
+\begin{document}
+	\begin{frame}
+		\maketitle
+	\end{frame}
+	\begin{frame}{Overview}
+		\tableofcontents
+	\end{frame}
+\section{Introduction}
+\begin{frame}{Introduction}
+	{What is the target of this journey?}
+	In these slides, I want to document my learning progress in handling ARM microcontrollers, in my case from the company ST-Microelectronics. Ultimately, this slide set should become a reference work. - Hanover 21.10.2025
+\end{frame}
+\begin{frame}{Introduction}
+	{What is the ARM architecture?}
+	\begin{itemize}
+		\item A microprocessor architecture developed by the British computer company Acorn in 1983. Initially, ARM stood for Acorn RISC Machine, and was later changed to Advanced RISC Machines.
+		\item The company does not manufacture the chips itself, but instead grants different licenses to semiconductor development companies, which then manufacture based on this architecture.
+	\end{itemize}
+\end{frame}
+\begin{frame}{Introduction}
+	{What is the ARM architecture?}
+	Today, many renowned chip manufacturers build their chips on the ARM architecture.\\
+	\textbf{Notable manufacturers:}
+	\begin{itemize}
+		\item Apple
+		\item Qualcomm Inc.
+		\item Samsung Electronics
+		\item Huawei Technologies Co. Ltd.
+		\item ST-Microelectronics
+		\item ...
+	\end{itemize}
+\end{frame}
+\begin{frame}{Introduction}
+	{Market share of ARM chips}
+	The market share of ARM-based chips is very large, but depends on the system. In mobile phones, it was already about 98\% in 2005 (at least one ARM processor). \\
+	\vspace{0.2cm}
+	In data and server centers, ARM is currently growing rapidly, though its goal of reaching 50\% market share by the end of 2025 is considered ambitious by some analysts.
+\end{frame}
+\begin{frame}{Introduction}
+	{What are the advantages of ARM?}
+	The ARM architecture offers several advantages:
+	\begin{itemize}
+		\item ARM uses the RISC principle.
+		\item ARM cores are small and can be easily combined.
+		\item Low costs and licensing flexibility.
+		\item Large ecosystem.
+		\item High performance per watt (efficiency).
+		\item Good security features.
+		\item Wide range of applications.
+	\end{itemize}
+\end{frame} 
+\section{ARM-Architecture}
+\begin{frame}{ARM}
+	{What is a Microcontroller Architecture?}
+	A microcontroller architecture describes the internal structure and functionality of a microcontroller – meaning how the individual components on the chip are interconnected and how they work together.\\
+	\vspace{0.2cm}
+	The architecture consists of: CPU, memory, bus system, peripherals, clock source, and power supply as well as reset logic.
+\end{frame}
+\begin{frame}{ARM}
+	{What is a Microcontroller Architecture?}
+	In summary: A microcontroller architecture is the blueprint of how CPU, memory, peripherals, buses, and clock sources work together on a single chip to execute tasks efficiently.
+\end{frame}
+\begin{frame}{ARM}
+	{RISC vs CISC}
+	\begin{figure}
+		\centering
+		\includegraphics[width=\linewidth]{RISC_CISC_Pipe.png}
+	\end{figure}
+	The graphic shows the pipelines of RISC and CISC. RISC processes instructions in parallel (one new instruction per clock cycle), while CISC processes longer and more complex instructions sequentially.
+\end{frame}
+\begin{frame}{ARM}
+	{Architecture Structure}
+	Register-based design (e.g., 16-32 registers) with a pipeline architecture for parallel instruction execution.\\
+	\vspace{0.2cm}
+	Harvard or Von Neumann structure depending on the type.\\
+	\vspace{0.2cm}
+	Components:
+	\begin{itemize}
+		\item ALU (Arithmetic Logic Unit)
+		\item Register set (R0-R15)
+		\item Program Counter, Stack Pointer
+		\item Interrupt Controller
+		\item Bus interfaces (AHB, APB...)
+	\end{itemize}
+\end{frame}
+\begin{frame}{ARM}
+	{Architecture Structure}
+	Cortex-M microcontrollers typically implement a modified Harvard architecture, where instruction and data buses are separate internally, but share a unified memory space.
+\end{frame}
+\begin{frame}{ARM}
+	{ARM - Cortex M Block-Diagram}
+	\begin{figure}
+		\includegraphics[width=.8\linewidth]{ARM_Block_Diagram.png}
+	\end{figure}
+\end{frame}
+\begin{frame}{ARM}
+	{WIC - Wake-up Interrupt Controller}
+	In deep sleep (core clock and NVIC logic powered down), the WIC acts as a shadow interrupt latch, allowing selected IRQs to wake the system.\\
+	\vspace{0.2cm}
+	Control of WIC behavior through:
+	\begin{itemize}
+		\item NVIC->ISER (enable/disable interrupts)
+		\item NVIC priorities and BASEPRI/PRIMASK (only unmasked and sufficiently prioritized IRQs can wake the system)
+		\item Sleep depth via SCB->SCR.SLEEPDEEP (Deep Sleep vs. normal Sleep)
+		\item WFI/WFE (how you enter sleep)
+		\item Peripheral wake sources (EXTI edge, RTC alarm, USART-RX, I²C address match, etc.)
+	\end{itemize}
+	NVIC is tightly coupled to the Cortex-M core through the System Control Block (SCB), forming the Exception Model
+\end{frame}
+\begin{frame}{ARM}
+	{NVIC - Nested Vector Interrupt Controller}
+	The Nested Vector Interrupt Controller (NVIC) is the hardware block in the ARM Cortex-M core that:
+	\begin{itemize}
+		\item Accepts, prioritizes, nests, and forwards interrupts (IRQs) to the CPU,
+		\item Can mask, enable, set/clear pending interrupts,
+		\item Integrates exception handling (Reset, NMI, HardFault, SysTick, etc.) using the same mechanisms.
+	\end{itemize}
+	It is directly integrated into the core, not in the periphery, and coupled with the System Control Block (SCB).
+\end{frame}
+\begin{frame}{ARM}
+	{ARM Core}
+	The ARM core is the actual processing core (CPU core) in the microcontroller - meaning the logical unit that executes code, performs arithmetic operations, processes interrupts, and communicates with memory and peripherals via buses.\\
+	\vspace{0.2cm}
+	In this case (STM32F103), this is an ARM Cortex-M3, based on the ARMv7-M architecture.\\
+	This means:
+	\begin{itemize}
+		\item 32-bit RISC processor
+		\item Harvard architecture (separate buses for code and data)
+		\item Pipeline design
+		\item Thumb-2 instruction set (compact mix of 16- and 32-bit instructions)
+	\end{itemize}
+\end{frame}
+\begin{frame}{ARM}
+	{ARM Core: Architectural Features}
+	Harvard Architecture:\\
+	Separate buses for code (I-Bus) and data (D-Bus) → enables parallel reading of instructions and data\\
+	\vspace{0.2cm}
+	Thumb-2 Instruction Set:\\
+	Mix of 16- and 32-bit instructions → compact code with full functionality\\
+	\vspace{0.2cm}
+	NVIC Integration:\\
+	Interrupt handling directly in the core → no external interrupt controllers needed\\
+	\vspace{0.2cm}
+	Sleep and Deep Sleep Modes:\\
+	Power saving functions via WFI/WFE instructions
+\end{frame}
+\begin{frame}{ARM}
+	{ARM Core: Architectural Features}
+	Harvard Concept in Action:
+	\begin{itemize}
+		\item Instructions are fetched via the I-Bus from Flash memory
+		\item Data (variables, peripheral registers) via the D-Bus
+		\item System and debug accesses (DMA, DAP, Trace) via the System bus
+	\end{itemize}
+	This allows the Cortex-M3 to simultaneously read an instruction and access data.
+\end{frame}
+\begin{frame}{ARM}
+	{ARM Core: Conclusion}
+	The ARM Cortex-M3 core is a 32-bit RISC processor with:
+	\begin{itemize}
+		\item Efficient pipeline design,
+		\item Integrated interrupt controller,
+		\item Memory protection (MPU),
+		\item Integrated debug/trace architecture (CoreSight),
+		\item And ideal for deterministic real-time and embedded applications (e.g., in your STM32F103).
+	\end{itemize}
+	It is the heart of the microcontroller - all other components (Flash, SRAM, Timer, UART, etc.) are built around it as peripherals.
+\end{frame}
+\begin{frame}{ARM}
+	{DAP - Debug Access Port}
+	The DAP (Debug Access Port) is the interface between your debugger (e.g., ST-Link, J-Link) and the internal debug and trace units of your ARM core.\\
+	\vspace{0.2cm}
+	The DAP acts as the "debug router" between the external world and the CoreSight internals.\\
+	\vspace{0.2cm}
+	The DAP consists of an AP (Access Port) and DP (Debug Port) interface – e.g. SW-DP for SWD or JTAG-DP for JTAG.
+\end{frame}
+\begin{frame}{ARM}
+	{MPU - Memory Protection Unit}
+	The MPU (Memory Protection Unit) is a hardware unit in the ARM core that divides memory into regions and monitors access rights (read/write/execute) for each region.\\
+	\vspace{0.2cm}
+	It prevents your code from accidentally writing to "forbidden" areas or executing from unauthorized memory.\\
+	\vspace{0.2cm}
+	It is thus a mini memory protection system, similar to an MMU (Memory Management Unit) in a PC - but simpler and without virtual addresses.
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{CMSIS vs HAL}
+	\framesubtitle{CMSIS (Cortex Microcontroller Software Interface Standard)}
+	\begin{lstlisting}[language=C]
+// Direct register access
+RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;  // Enable clock
+GPIOC->BSRR = GPIO_BSRR_BR13;        // Set pin to LOW
+	\end{lstlisting}
+	\begin{itemize}
+		\item Vendor: ARM (Cortex-M standard)
+		\item Abstraction level: Low (register-level via CMSIS-Device headers)
+		\item What is it?: Standardized core intrinsics + device header mapping (names/addresses)
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{CMSIS vs HAL}
+	\framesubtitle{HAL (Hardware Abstraction Layer)}
+	\begin{lstlisting}[language=C]
+// Function calls
+__HAL_RCC_GPIOC_CLK_ENABLE();           // Enable clock
+HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);  // Set pin to LOW
+	\end{lstlisting}
+	\begin{itemize}
+		\item Vendor: STMicroelectronics (only for STM32)
+		\item Abstraction level: High (hides registers)
+		\item What is it?: Convenient function library
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{CMSIS vs HAL}
+	\framesubtitle{Turning LED on - Both approaches:}
+	CMSIS:
+	\begin{lstlisting}[language=C]
+RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+GPIOC->CRH &= ~(GPIO_CRH_CNF13 | GPIO_CRH_MODE13);
+GPIOC->CRH |= GPIO_CRH_MODE13_1;
+GPIOC->BSRR = GPIO_BSRR_BR13;
+	\end{lstlisting}
+	\begin{itemize}
+		\item 4 lines of code
+		\item You need to understand registers
+		\item Fast (direct)
+	\end{itemize}
+\end{frame}
+\begin{frame}{CMSIS vs HAL}
+	{Turning LED on - Both approaches:}
+	HAL:
+	\begin{itemize}
+		\item 7+ lines of code
+		\item Readable and self-explanatory
+		\item Slower (many function calls)
+	\end{itemize}
+	\vspace{0.2cm}
+	HAL typically requires more lines of code due to function calls and initializations.
+\end{frame}
+\begin{frame}{CMSIS vs HAL}
+	\begin{table}
+		\footnotesize\centering
+		\begin{tabular}{@{} l l l @{}}
+			\toprule
+			\textbf{Aspect} & \textbf{CMSIS / Register} & \textbf{HAL (STM32)} \\
+			\midrule
+			Performance & typically 3–10× faster\textsuperscript{*} & slower (wrapper calls) \\
+			Code size (blink) & \(\sim\)3–6 KB & \(\sim\)15–25 KB \\
+			Learning curve & steeper & flatter \\
+			Readability & terse/technical & very readable \\
+			Portability & vendor-agnostic concepts; device headers per family & portable within STM32 family \\
+			Debugging & transparent (no hidden layers) & black-boxy at times \\
+			Control & 100\% & limited by API \\
+			\bottomrule
+		\end{tabular}
+		\caption{CMSIS vs HAL (rule-of-thumb; depends on modules/optimizations)}
+	\end{table}
+	
+	\footnotesize\textsuperscript{*}\,Can be much more in tight loops/ISRs; depends on inlining and wait states.
+	
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{CMSIS vs HAL}
+	\framesubtitle{Why should you learn CMSIS?}
+	Understand how hardware REALLY works.
+	\begin{lstlisting}[language=C]
+// HAL hides the magic
+HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+		
+// CMSIS shows you the reality
+GPIOC->BSRR = GPIO_BSRR_BR13;  // Set bit 29 in register 0x4001100C
+	\end{lstlisting}
+	With CMSIS you understand that you're setting a specific bit in a hardware register. \textbf{With HAL you're just calling a function.}
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{CMSIS vs HAL}
+	\framesubtitle{Performance in Time-Critical Applications}
+	\begin{lstlisting}[language=C]
+// HAL: ~50-100 CPU cycles
+HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+		
+// CMSIS: ~2-3 CPU cycles
+GPIOC->BSRR = GPIO_BSRR_BS13;
+	\end{lstlisting}
+	At 72 MHz: HAL takes ~1.4 µs, CMSIS only ~0.04 µs - 35x faster!\\
+	\vspace{0.2cm}
+	Important for: Fast PWM, Bit-banging (WS2812 LEDs, OneWire), Interrupt Service Routines and real-time protocols\\
+	\vspace{0.2cm}
+	\footnotesize{Exact cycle counts depend on compiler optimization, inlining and bus wait states.
+		Rule of thumb: CMSIS/register-level calls are typically an order of magnitude faster than HAL wrappers.}
+	
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{CMSIS vs HAL}
+	\framesubtitle{Smaller Code = More Space for Your Program}
+	\begin{lstlisting}[language=C]
+STM32F103C6: 32 KB Flash
+		
+HAL project:    HAL library ≈ 15–25 KB → Leaves ~7–17 KB for your code
+CMSIS project:  CMSIS only ≈ 3–6 KB   → Leaves ~26–29 KB for your code
+	\end{lstlisting}
+	\vspace{0.2cm}
+	\footnotesize{Note: The exact size depends on which HAL modules are linked. 
+		Even small HAL-based projects often use significantly more Flash due to 
+		abstraction layers and initialization code.}
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{CMSIS vs HAL}
+	\framesubtitle{Understanding Other MCUs}
+	When you switch to other manufacturers (ESP32, Nordic nRF, Raspberry Pi Pico),	there is no STM32 HAL. Each vendor provides its own SDK (e.g., ESP-IDF, nRF5).
+	But the register-level principle remains the same.
+	\begin{lstlisting}[language=C]
+// STM32 (CMSIS)
+GPIOC->BSRR = GPIO_BSRR_BS13;
+// ESP32 (IDF)
+GPIO.out_w1ts = (1 << 13);
+// nRF52 (Nordic)
+NRF_GPIO->OUTSET = (1 << 13);
+	\end{lstlisting}
+\end{frame}
+\begin{frame}{CMSIS vs HAL}
+	{Jobs and Industry}
+	In industry among professional embedded developers:\\
+	\vspace{0.2cm}
+	HAL: ~20\% (prototyping, quick projects)\\
+	CMSIS/Register-Level: ~80\% (production, performance)\\
+	\vspace{0.2cm}
+	Why? Because:
+	\begin{itemize}
+		\item Firmware must be small (cheaper MCUs)
+		\item Firmware must be fast (real-time requirements)
+		\item Developers must understand hardware (troubleshooting)
+	\end{itemize}
+\end{frame}
+\section{Practice}
+\begin{frame}{Practice}
+	{Blink Test}
+	Just as the "Hello World" project is commonly used in pure software programming, here a Blink project is described. This project makes an arbitrary LED blink using an ARM microcontroller. In my case, a \textbf{STM32F103C6T6A}.
+	\begin{figure}
+		\centering
+		\includegraphics[width=\linewidth]{LED_Blink_Flow.png}
+	\end{figure}
+\end{frame}
+\begin{frame}{Practice}
+	{Blink Test}
+	The program flow is simple: The LED is turned on, this state is maintained for 2 seconds, then the LED is turned off and the processor waits for 1 second before the LED turns on again. This sequence is then executed continuously through a loop.\\ 
+	\vspace{0.2cm}
+	In my case, the LED is controlled via pin PC13. Flashing and debugging is done using an ST-Link, therefore in CubeIDE the debug parameter must be set to Serial Wire.
+\end{frame}
+\begin{frame}{Practice}
+	{CubeIDE Configuration}
+	\begin{figure}
+		\includegraphics[width=.6\linewidth]{Blink_001.png}
+	\end{figure}
+	The pin \textbf{PC13} is configured directly in the code.
+\end{frame}
+\begin{frame}{Practice}
+	{CubeIDE Configuration}
+	\begin{figure}
+		\includegraphics[width=\linewidth]{Blink_002.png}
+	\end{figure}
+\end{frame}
+\begin{frame}{Practice}
+	{Useing HAL}
+	Although HAL is not the main topic here, it’s interesting to see how the same project looks using the HAL library.
+	
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{Implementation with HAL}
+	\begin{lstlisting}[language=C]
+int main(void)
+	{
+		HAL_Init();
+		SystemClock_Config();
+		MX_GPIO_Init();
+		while (1)
+		{
+			....
+		}
+	}
+	\end{lstlisting}
+	The GPIO configuration is implemented directly by the HAL library, whereas in CMSIS you have to configure the registers yourself.
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{Implementation with HAL}
+	\begin{lstlisting}[language=C]
+while (1)
+	{
+		// LED ON for 2 seconds (active-low: GPIO_PIN_RESET)
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
+		HAL_Delay(2000);
+			
+		// LED OFF for 1 second (active-high: GPIO_PIN_SET)
+		HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);
+		HAL_Delay(1000);
+	}
+	\end{lstlisting}
+	Delay and WritePin functions are also provided by the HAL library, the code closely resembles Arduino code.
+\end{frame}
+\begin{frame}{Practice}
+	{Functional Architecture and Logic}
+	For the LED to blink (toggle), the MCU must know exactly when it should be ON, how long it should be ON, and when the LED must be turned OFF. For this, a delay function implemented with the SysTick\_Handler is used.
+	\begin{figure}
+		\centering
+		\includegraphics[width=\linewidth]{Blink_003.png}
+	\end{figure}
+\end{frame}
+\begin{frame}{Practice}
+	{Functional Architecture and Logic}
+	\textbf{SysTick\_Handler:} The SysTick is a timer in the processor that triggers an interrupt at regular intervals (here every millisecond). It's like an alarm clock that rings every millisecond. When the alarm rings, the \textbf{SysTick\_Handler} function is called. This function does only one thing: it increments the counter \textbf{msTicks} by 1.\\
+	\vspace{0.2cm}
+	\textbf{Interrupt:} Imagine you are a teacher grading exams (that's your main program). Suddenly the telephone rings (that's the interrupt). You interrupt the grading, answer the phone and talk to the caller (that's the interrupt handler). When the call is finished, you return to grading and continue exactly where you left off.
+\end{frame}
+\begin{frame}{Practice}
+	{Functional Architecture and Logic}
+	\begin{figure}
+		\centering
+		\includegraphics[width=\linewidth]{Blink_004.png}
+	\end{figure}
+	The system utilizes a delay function that waits for milliseconds. It is based on a global counter \textbf{msTicks} that is incremented every millisecond by the SysTick interrupt.
+	
+	The function stores the current value of \textbf{msTicks} at the beginning (\textbf{startTicks}). It then waits in a loop until the difference between the current \textbf{msTicks} and \textbf{startTicks} becomes greater than or equal to the desired \textbf{ms} value.
+\end{frame}
+\begin{frame}[fragile]
+	\frametitle{Practice}
+	\framesubtitle{Functional Architecture and Logic}
+	\begin{lstlisting}[language=C]
+void delay_ms(uint32_t ms){
+	uint32_t startTicks = msTicks;
+	while ((msTicks - startTicks) < ms);
+}
+	\end{lstlisting}
+	The msTicks counter overflows after approximately 49 days from 4,294,967,295 to 0, but the calculation (msTicks - startTicks) still functions correctly because subtraction with unsigned integers always produces the correct result.\\
+	\vspace{0.2cm}
+	This approach utilizes the hardware timer (not "estimated" waiting), ensuring that 1000ms are exactly 1000ms.
+\end{frame}
+\begin{frame}{Practice}
+	{Functional Architecture and Logic}
+	Why uint32\_t:\\
+	\textbf{System independence}: If one uses int, the compiler might allocate different memory sizes (e.g., 2 bytes on a 16-bit system vs. 4 bytes on a 32-bit system). uint32\_t ensures that the data type is always exactly 32 bits, regardless of the architecture.\\
+	\vspace{0.2cm}
+	\textbf{Hardware registers}: When programming microcontrollers such as an STM32, one often needs to work with hardware registers that have a fixed bit width (e.g., 32 bits). uint32\_t fits perfectly and facilitates bit manipulation.\\
+\end{frame}
+\end{document}
