@@ -69,6 +69,7 @@ build/
 # --- Editor and OS-Specific Files ---
 # Common files from popular editors (e.g., VS Code).
 .vscode/
+.metadata/
 
 # Operating system files.
 .DS_Store
