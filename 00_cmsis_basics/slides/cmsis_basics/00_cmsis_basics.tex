@@ -76,7 +76,7 @@
 \section{Introduction}
 \begin{frame}{Introduction}
 	{What is the target of this journey?}
-	In these slides, I want to document my learning progress in handling ARM microcontrollers, in my case from the company ST-Microelectronics. Ultimately, this slide set should become a reference work. - Hanover 21.10.2025
+	In these slides, I want to document my learning progress in handling ARM microcontrollers, in my case from the company ST-Microelectronics. Ultimately, this slide set should become a reference work. - \textit{Hanover 21.10.2025}
 \end{frame}
 \begin{frame}{Introduction}
 	{What is the ARM architecture?}
@@ -1494,5 +1494,347 @@ GPIOC->CRH |= (0x2u << 20);
 		\item Current-limiting resistor present?
 		\item Pin not used by debugger (SWD/JTAG)?
 	\end{itemize}
+\end{frame}
+% Slide 1: Clock System Overview
+\begin{frame}{Practice}{STM32F103 Clock System Overview}
+	\textbf{Available Clock Sources:}
+	\begin{itemize}
+		\item \textbf{HSI:} High-Speed Internal (8 MHz RC oscillator)
+		\item \textbf{HSE:} High-Speed External (4-16 MHz crystal/oscillator)
+		\item \textbf{PLL:} Phase-Locked Loop (multiplies HSI or HSE)
+		\item \textbf{LSI:} Low-Speed Internal (40 kHz for watchdog)
+		\item \textbf{LSE:} Low-Speed External (32.768 kHz for RTC)
+	\end{itemize}
+	
+	\medskip
+	\textbf{System Clock (SYSCLK):}
+	\begin{itemize}
+		\item Can be HSI, HSE, or PLL output
+		\item Maximum frequency: 72 MHz (STM32F103)
+		\item Drives AHB bus → APB1/APB2 peripherals
+	\end{itemize}
+	
+	\medskip
+	\textbf{Our Goal:} Configure HSI (8 MHz) as system clock with no prescaling
+\end{frame}
+
+% Slide 2: RCC Register Overview
+\begin{frame}{Practice}{RCC - Reset and Clock Control}
+	\textbf{Key RCC Registers:}
+	\begin{itemize}
+		\item \textbf{RCC\_CR:} Clock Control Register (enable/ready flags)
+		\item \textbf{RCC\_CFGR:} Clock Configuration Register (switches, prescalers)
+		\item \textbf{RCC\_CIR:} Clock Interrupt Register
+		\item \textbf{RCC\_APB1ENR / RCC\_APB2ENR:} Peripheral clock enable
+	\end{itemize}
+	
+	\medskip
+	\textbf{RCC\_CR Important Bits:}
+	\begin{itemize}
+		\item HSION (bit 0): HSI oscillator enable
+		\item HSIRDY (bit 1): HSI ready flag (read-only)
+		\item HSEON (bit 16): HSE oscillator enable
+		\item HSERDY (bit 17): HSE ready flag
+		\item PLLON (bit 24): PLL enable
+		\item PLLRDY (bit 25): PLL ready flag
+		\item CSSON (bit 19): Clock Security System enable
+	\end{itemize}
+\end{frame}
+
+% Slide 3: RCC_CFGR Register Details
+\begin{frame}{Practice}{RCC\_CFGR - Configuration Register}
+	\textbf{System Clock Switch (SW) - Bits [1:0]:}
+	\begin{itemize}
+		\item 00: HSI selected as system clock
+		\item 01: HSE selected as system clock
+		\item 10: PLL selected as system clock
+		\item 11: Not allowed
+	\end{itemize}
+	
+	\medskip
+	\textbf{System Clock Switch Status (SWS) - Bits [3:2]:}
+	\begin{itemize}
+		\item Read-only, shows which clock is actually used
+		\item Same encoding as SW bits
+		\item Must be checked after clock switch
+	\end{itemize}
+	
+	\medskip
+	\textbf{Prescalers:}
+	\begin{itemize}
+		\item HPRE [7:4]: AHB prescaler (SYSCLK → HCLK)
+		\item PPRE1 [10:8]: APB1 prescaler (max 36 MHz)
+		\item PPRE2 [13:11]: APB2 prescaler (max 72 MHz)
+	\end{itemize}
+\end{frame}
+
+% Slide 4: Step 1 - Enable HSI
+\begin{frame}[fragile]{Practice}{Step 1: Enable HSI Oscillator}
+	\textbf{Enable the HSI and wait for ready:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		RCC->CR |= RCC_CR_HSION;
+		while (!(RCC->CR & RCC_CR_HSIRDY));
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{What happens:}
+	\begin{itemize}
+		\item Set HSION bit (bit 0) in RCC\_CR
+		\item HSI oscillator starts (typically few microseconds)
+		\item Poll HSIRDY bit (bit 1) until it becomes 1
+		\item HSIRDY = 1 means HSI is stable
+	\end{itemize}
+	
+	\smallskip
+	\textbf{Note:} HSI typically already enabled after reset
+	
+	\smallskip
+	\textbf{HSI: 8 MHz (±1\% at 25°C), fast startup, no external parts}
+\end{frame}
+
+% Slide 5: Step 2 - Switch to HSI
+\begin{frame}[fragile]{Practice}{Step 2: Select HSI as System Clock}
+	\textbf{Clear and set system clock switch bits:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		RCC->CFGR &= ~RCC_CFGR_SW;
+		RCC->CFGR |= RCC_CFGR_SW_HSI;
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{What happens:}
+	\begin{itemize}
+		\item Clear SW[1:0] bits to 00
+		\item Set SW to 00 (HSI selection)
+		\item Hardware begins clock switch
+	\end{itemize}
+	
+	\medskip
+	\textbf{Bit Values:}
+	\begin{itemize}
+		\item RCC\_CFGR\_SW: Mask [1:0] = 0x00000003
+		\item RCC\_CFGR\_SW\_HSI: Value = 0x00000000
+	\end{itemize}
+	
+	\smallskip
+	\textbf{Note:} Second line redundant (OR with 0), but clear intent
+\end{frame}
+
+% Slide 6: Step 3 - Wait for Switch
+\begin{frame}[fragile]{Practice}{Step 3: Wait for Clock Switch Complete}
+	\textbf{Poll SWS bits until HSI is active:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSI);
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{What happens:}
+	\begin{itemize}
+		\item Read SWS[3:2] status bits
+		\item Compare with expected value (00 for HSI)
+		\item Loop until hardware confirms switch
+		\item Typically completes in few clock cycles
+	\end{itemize}
+	
+	\medskip
+	\textbf{Why necessary?}
+	\begin{itemize}
+		\item Clock switching is not instantaneous
+		\item Hardware must safely transition
+		\item Ensures stability before proceeding
+	\end{itemize}
+	
+	\smallskip
+	\textbf{RCC\_CFGR\_SWS: Mask [3:2] = 0x0000000C}
+\end{frame}
+
+% Slide 7: Step 4 - Configure Prescalers
+\begin{frame}[fragile]{Practice}{Step 4: Configure Bus Prescalers}
+	\textbf{Set all prescalers to /1 (no division):}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		RCC->CFGR &= ~(RCC_CFGR_HPRE | 
+		RCC_CFGR_PPRE1 | 
+		RCC_CFGR_PPRE2);
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{What happens:}
+	\begin{itemize}
+		\item Clear HPRE[7:4], PPRE1[10:8], PPRE2[13:11] to 0xxx
+		\item 0xxx = prescaler /1 (no division)
+		\item All buses run at SYSCLK
+	\end{itemize}
+	
+	\medskip
+	\textbf{Result with 8 MHz HSI:}
+	\begin{itemize}
+		\item SYSCLK / HCLK / PCLK1 / PCLK2 = 8 MHz
+	\end{itemize}
+	
+	\smallskip
+	\textbf{Safe: 8 MHz << limits (APB1: 36 MHz, APB2: 72 MHz)}
+\end{frame}
+
+% Slide 8: Clock Tree Visualization
+\begin{frame}{Practice}{Clock Distribution After Configuration}
+	\textbf{Clock Tree:}
+	\begin{center}
+		\texttt{HSI (8 MHz)}\\
+		$\downarrow$ SW=00\\
+		\texttt{SYSCLK (8 MHz)}\\
+		$\downarrow$ HPRE=/1\\
+		\texttt{AHB/HCLK (8 MHz)}\\
+		$\swarrow$ PPRE1=/1 \quad\quad $\searrow$ PPRE2=/1\\
+		\texttt{APB1 (8 MHz)} \quad\quad \texttt{APB2 (8 MHz)}
+	\end{center}
+	
+	\medskip
+	\textbf{All peripherals run at 8 MHz}
+	\begin{itemize}
+		\item Core (Cortex-M3): 8 MHz
+		\item Timers: 8 MHz\footnotemark
+		\item SysTick: 8 MHz (if using HCLK)
+		\item Peripherals (GPIO, UART, etc.): 8 MHz
+	\end{itemize}
+	
+	\footnotetext[1]{Timer rule: APBx prescaler=1 → Timer=APBx; prescaler>1 → Timer=APBx*2}
+\end{frame}
+
+% Slide 9: Complete Function Analysis
+\begin{frame}[fragile]{Practice}{Complete Function Flow}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\tiny]
+void SystemClock_Config(void) {
+	// 1. Enable HSI and wait for ready
+	RCC->CR |= RCC_CR_HSION;
+	while (!(RCC->CR & RCC_CR_HSIRDY));
+			
+	// 2. Select HSI as system clock source
+	RCC->CFGR &= ~RCC_CFGR_SW;
+	RCC->CFGR |= RCC_CFGR_SW_HSI;
+			
+	// 3. Wait until HSI is used as system clock
+	while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_HSI);
+			
+	// 4. Set all prescalers to /1
+	RCC->CFGR &= ~(RCC_CFGR_HPRE | 
+	RCC_CFGR_PPRE1 | 
+	RCC_CFGR_PPRE2);
+}
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{Execution Order:}
+	\begin{enumerate}
+		\item Enable clock source (HSI)
+		\item Wait for source to stabilize
+		\item Request clock switch
+		\item Verify switch completed
+		\item Configure bus dividers
+	\end{enumerate}
+\end{frame}
+
+% Slide 10: When to Use HSI vs HSE vs PLL
+\begin{frame}{Practice}{Clock Source Selection}
+	\textbf{HSI (8 MHz internal):}
+	\begin{itemize}
+		\item \textbf{Pros:} Fast startup, no external parts, simple
+		\item \textbf{Cons:} ±1\% accuracy, temperature dependent
+		\item \textbf{Use:} Prototyping, cost-sensitive designs
+	\end{itemize}
+	
+	\medskip
+	\textbf{HSE (4-16 MHz crystal):}
+	\begin{itemize}
+		\item \textbf{Pros:} High accuracy (±50 ppm), stable
+		\item \textbf{Cons:} Slower startup, needs crystal + caps
+		\item \textbf{Use:} USB, CAN, precise timing
+		\item \textbf{USB:} Requires 48 MHz (HSE→PLL with USBPRE /1.5)
+	\end{itemize}
+	
+	\medskip
+	\textbf{PLL (up to 72 MHz):}
+	\begin{itemize}
+		\item \textbf{Pros:} Max performance, flexible
+		\item \textbf{Cons:} Complex config, higher power
+		\item \textbf{Use:} Performance apps, USB (48 MHz via /1.5)
+	\end{itemize}
+\end{frame}
+
+% Slide 11: Common Mistakes
+\begin{frame}[fragile]{Practice}{Common Clock Configuration Mistakes}
+	\textbf{Mistake 1: Not waiting for ready flags}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		RCC->CR |= RCC_CR_HSEON;
+		// WRONG: Immediately switch without waiting
+		RCC->CFGR |= RCC_CFGR_SW_HSE;
+	\end{lstlisting}
+	
+	\textbf{Mistake 2: Not verifying switch status}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		RCC->CFGR |= RCC_CFGR_SW_PLL;
+		// WRONG: Continue without checking SWS bits
+	\end{lstlisting}
+	
+	\textbf{Mistake 3: Violating APB1 frequency limit}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		// PLL at 72 MHz, but PPRE1 = /1
+		// WRONG: APB1 would be 72 MHz (max 36 MHz!)
+	\end{lstlisting}
+	
+	\textbf{Mistake 4: Flash wait states not configured}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		// When using >24 MHz, must configure FLASH->ACR
+		// Our 8 MHz example is safe (0 wait states OK)
+	\end{lstlisting}
+\end{frame}
+
+% Slide 12: Debugging Checklist
+\begin{frame}{Practice}{Clock Configuration Debugging}
+	\textbf{System doesn't run correctly after clock config?}
+	
+	\medskip
+	\textbf{1. Verify clock source ready:}
+	\begin{itemize}
+		\item Check HSIRDY/HSERDY/PLLRDY in RCC\_CR
+		\item Measure oscillator with scope
+		\item Output to MCO pin (PA8) for measurement
+	\end{itemize}
+	
+	\textbf{2. Verify clock switch:}
+	\begin{itemize}
+		\item Read SWS bits in RCC\_CFGR
+		\item Should match SW bits after switch
+	\end{itemize}
+	
+	\textbf{3. Check prescalers:}
+	\begin{itemize}
+		\item APB1 ≤ 36 MHz, APB2 ≤ 72 MHz
+		\item Timer ×2 rule when APBx prescaler > 1
+	\end{itemize}
+	
+	\textbf{4. HSE Issues:}
+	\begin{itemize}
+		\item Enable CSS (detects HSE fail, switches to HSI)
+	\end{itemize}
+\end{frame}
+\begin{frame}{}
+	\begin{center}
+		\Large
+		\textbf{Thank You for Your Attention!}
+		
+		\vspace{1cm}
+		
+		\normalsize
+		\textbf{Practice Projects \& Examples:}
+		
+		\vspace{0.5cm}
+		
+		\url{https://github.com/PavelPys90/arm-embedded-path}
+		
+		\texttt{/tree/main/00\_cmsis\_basics/Projects}
+		
+		\vspace{1cm}
+		
+		\textit{All code examples from this presentation are available in the repository}
+	\end{center}
 \end{frame}
 \end{document}
