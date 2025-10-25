@@ -143,11 +143,13 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	// LED On
-	  GPIOC->BSRR = GPIO_BSRR_BR13;
-	  delay_ms(500);
+	  //GPIOC->BSRR = GPIO_BSRR_BR13;
+	  GPIOC->BSRR = (1u << (13+16));
+	  delay_ms(1000);
 
-	  GPIOC->BSRR = GPIO_BSRR_BS13;
-	  delay_ms(500);
+	  //GPIOC->BSRR = GPIO_BSRR_BS13;
+	  GPIOC->BSRR = (1u << 13);
+	  delay_ms(1000);
   }
   /* USER CODE END 3 */
 }
