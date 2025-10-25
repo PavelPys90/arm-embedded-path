@@ -68,14 +68,14 @@ int __io_putchar(int ch) {
   return ch;
 }
 
-/* Variante B: _write() für newlib-nano (auskommentieren, wenn syscalls.c existiert) */
+/* Option B: _write() for newlib-nano (comment out if syscalls.c exists) */
 int _write(int file, char *ptr, int len) {
   (void)file;
   HAL_UART_Transmit(&huart1, (uint8_t*)ptr, (uint16_t)len, HAL_MAX_DELAY);
   return len;
 }
 
-/* Helfer: Register-Leser */
+/* Helper: Register readers */
 static inline uint32_t READ_IDCODE(void) {
   volatile uint32_t *ID = (uint32_t*)DBGMCU_IDCODE_ADDR;
   return *ID;
@@ -89,7 +89,7 @@ static inline void READ_UID(uint32_t uid[3]) {
   uid[0] = U[0]; uid[1] = U[1]; uid[2] = U[2];
 }
 
-/* Optional: DMA-TX-Callback (Bestätigung) */
+/* Optional: DMA-TX callback (confirmation) */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
   if (huart->Instance == USART1) {
     const char done[] = "DMA TX complete\r\n";
@@ -136,7 +136,7 @@ int main(void)
   printf("Diag: PCLK2=%lu Hz, USART1->BRR=0x%04lX, Over=%lu\r\n",
          (unsigned long)pclk2, (unsigned long)brr, (unsigned long)over);
 
-  // Remap sicher ausschalten (USART1 soll PA9/PA10 nutzen):
+  // Ensure remap is disabled (USART1 should use PA9/PA10):
   __HAL_RCC_AFIO_CLK_ENABLE();
   __HAL_AFIO_REMAP_USART1_DISABLE();
   	uint32_t idcode = READ_IDCODE();
@@ -152,7 +152,7 @@ int main(void)
     printf("UID            : %08lX%08lX%08lX\r\n",
            (unsigned long)uid[2], (unsigned long)uid[1], (unsigned long)uid[0]);
 
-    // DMA-TX-Kurztest (USART1 -> DMA1 Channel 4)
+    // DMA-TX-Quicktest (USART1 -> DMA1 Channel 4)
     HAL_UART_Transmit_DMA(&huart1, (uint8_t*)dma_msg, (uint16_t)(sizeof(dma_msg)-1));
   /* USER CODE END 2 */
 
