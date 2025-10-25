@@ -1,0 +1,646 @@
+% Showcase Präsentation mit SimSchoolDark Theme
+\documentclass{beamer}
+
+% Theme laden
+\usetheme{SimSchoolDark}
+
+% Für Python Code Highlighting
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabu}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.45,0.45,0.45}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},
+	commentstyle=\color{codegreen}\itshape,
+	keywordstyle=\color{magenta}\bfseries,
+	stringstyle=\color{codepurple},
+	numberstyle=\tiny\color{codegray},
+	basicstyle=\ttfamily\small,  % kompakter als footnotesize, aber noch gut lesbar
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=none,                % ich empfehle in Beamer lieber keine Zeilennummern
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=4,                   % einheitlich 4 Spaces für Tabs
+	frame=single,                % optional: Rahmen um den Code
+	rulecolor=\color{gray!50},   % dezente Rahmenfarbe
+	aboveskip=5pt,
+	belowskip=5pt,
+	xleftmargin=4pt, xrightmargin=4pt,
+	columns=fullflexible         % sorgt für gleichmäßige Zeichenabstände
+}
+
+\lstset{style=mystyle}
+
+% Python Code Style
+%\lstset{
+%	language=Python,
+%	basicstyle=\ttfamily\small,
+%	keywordstyle=\color{simschooldarkest}\bfseries,
+%	stringstyle=\color{simschoolmedium},
+%	commentstyle=\color{simschoollight}\itshape,
+%	numberstyle=\tiny\color{simschoollight},
+%	numbers=left,
+%	breaklines=true,
+%	frame=single,
+%	rulecolor=\color{simschoolmedium},
+%	backgroundcolor=\color{simschoolbg!50},
+%	showstringspaces=false,
+%	tabsize=4
+%}
+
+% Präsentationsinfos
+\title{ARM-Embedded-Path}
+\subtitle{Hardwaretests for STMF103CxT6}
+\author{Pavel Pys}
+\date{\today}
+%\institute{}
+\begin{document}
+\begin{frame}{}
+	\maketitle
+\end{frame}
+\begin{frame}{Overview}
+	\tableofcontents
+\end{frame}
+\section{Motivation}
+% Slide 1: Title Slide
+\begin{frame}
+	\begin{center}
+		\Huge
+		\textbf{Why Chip Verification Matters}
+		
+		\vspace{1cm}
+		
+		\Large
+		Identifying Counterfeit STM32F103 Microcontrollers
+		
+		\vspace{1.5cm}
+		
+		\normalsize
+		Focus: STM32F103C6T6A \& STM32F103C8T6
+	\end{center}
+\end{frame}
+
+% Slide 2: The Counterfeit Problem
+\begin{frame}{The Reality}{Counterfeit Chips in the Supply Chain}
+	\textbf{The Problem is Real and Growing:}
+	\begin{itemize}
+		\item ERAI reported \textbf{786} cases in \textbf{2023} and \textbf{1,055} in \textbf{2024} (highest level since 2015)%
+		\footnotesize~[ERAI 2023/2024]%
+		\item "Blue Pill" boards with STM32F103 are particularly affected by clones/drop-in replacements
+		\item Occurrences also on major marketplaces (AliExpress, eBay, Amazon)
+		\item Even reputable distributors can unintentionally supply non-original parts
+	\end{itemize}
+	
+	\medskip
+	\textbf{Common Scenarios:}
+	\begin{itemize}
+		\item Remarking: \textit{C6} sold as \textit{C8} (lower density → higher margin)
+		\item Wafer rejects, refurbished parts
+		\item Pin-compatible clones with different behavior (GD32, APM32, CH32, CS32)
+		\item Completely different chips with counterfeit markings
+	\end{itemize}
+	
+	\medskip
+	\textcolor{red}{\textbf{Bottom Line:}} Never trust markings alone — always verify!
+\end{frame}
+% Slide 3: Why This Matters for Development
+\begin{frame}{Impact on Development}{Why Should You Care?}
+	\textbf{1. Debugging Nightmares:}
+	\begin{itemize}
+		\item Intermittent bugs that make no sense
+		\item Code works on one board, fails on another
+		\item Hours wasted chasing phantom issues
+		\item Features that simply don't work (DMA, USB, ADC channels)
+	\end{itemize}
+	
+	\medskip
+	\textbf{2. Product Reliability:}
+	\begin{itemize}
+		\item Field failures that are impossible to reproduce
+		\item Temperature/voltage instability
+		\item Unexpected resets or crashes
+		\item Warranty claims and customer dissatisfaction
+	\end{itemize}
+	
+	\medskip
+	\textbf{3. Time and Money:}
+	\begin{itemize}
+		\item Wasted development hours debugging non-genuine chips
+		\item Production delays when issues discovered late
+		\item Cost of rework and board replacements
+	\end{itemize}
+\end{frame}
+
+% Slide 4: Example Scenario - Flash Size Mismatch
+\begin{frame}[fragile]{Example Scenario}{Flash Size Verification}
+	\textbf{Common Issue:} Tooling reports 64/128\,KB, actual usable size differs
+	
+	\smallskip
+	\textbf{Verify via Flash Size Register (authoritative):}
+	\textbf{Real-World Blue Pill Observations (Community):}
+	\begin{itemize}
+		\item Tools/programmers sometimes report 128\,KB, Flash Size Register shows 64\,KB
+		\item Clones (e.g., CS32) with different IDCODEs/USB behavior reported
+		\item Writing beyond actual size causes corruption/crashes
+	\end{itemize}
+\end{frame}
+% Slide 5: C6 vs C8 - What's the Difference?
+\begin{frame}{STM32F103C6 vs C8}{Understanding the Variants}
+	\begin{center}
+		\small
+		\begin{tabular}{|l|c|c|}
+			\hline
+			\textbf{Feature} & \textbf{C6T6A} & \textbf{C8T6} \\ \hline
+			Flash Memory & 32 KB & 64 KB \\ \hline
+			SRAM & 10 KB & 20 KB \\ \hline
+			\textbf{DBGMCU DEV\_ID} & \textbf{0x412} (Low density) & \textbf{0x410} (Medium density) \\ \hline
+			Density & Low & Medium \\ \hline
+			Price (typical) & Lower & Higher \\ \hline
+		\end{tabular}
+	\end{center}
+
+	\medskip
+	\textbf{Why C6→C8 Remarking?}
+	\begin{itemize}
+		\item Price difference, same 48-pin LQFP package, identical marking area
+	\end{itemize}
+	
+	\medskip
+	\textbf{Common Drop-in Alternatives:}
+	\begin{itemize}
+		\item \textbf{GD32F103} (GigaDevice), \textbf{APM32F103} (Geehy), \textbf{CH32F103} (WCH), \textbf{CS32F103}
+		\item Pin-compatible but \emph{not} bit-identical; timing/peripherals may differ
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Failure Modes}{Common Issues with Non-Genuine/Clone Chips}
+	\textbf{Missing/Deviating Features (Observations):}
+	\begin{itemize}
+		\item DMA channels unreliable
+		\item Fewer/different number of ADC channels
+		\item USB enumeration/function differs (community reports, e.g., CS32)
+		\item CAN/RTC oscillator issues
+	\end{itemize}
+	
+	\medskip
+	\textbf{Electrical Characteristics:}
+	\begin{itemize}
+		\item Higher power consumption, different limits
+		\item Temperature/power supply sensitivity
+		\item Poorer EMC/EMI performance
+	\end{itemize}
+	
+	\medskip
+	\textbf{Timing/Performance:}
+	\begin{itemize}
+		\item HSI accuracy/clock drift
+		\item Flash wait states required at high clock frequencies
+		\item Interrupt latencies/peripheral timing differ
+	\end{itemize}
+\end{frame}
+
+% Slide 7: The Business Case
+\begin{frame}{Business Impact}{Example Cost Calculation}
+	\textbf{Example Scenario (Assumptions):}
+	\begin{itemize}
+		\item Small production batch: 100 units
+		\item Non-genuine chips cause 20\% field failure rate
+		\item Cost per RMA: \$50 (shipping, diagnosis, replacement)
+		\item Engineering debugging time: 40 hours @ \$75/hr
+	\end{itemize}
+	
+	\medskip
+	\textbf{Example Cost Breakdown:}
+	\begin{itemize}
+		\item 20 RMA returns @ \$50 = \$1,000
+		\item Engineering time = \$3,000
+		\item \textbf{Total example loss: \$4,000}
+		\item Chip cost "savings": ~\$100
+	\end{itemize}
+	
+	\medskip
+	\textbf{Additional Hidden Costs:}
+	\begin{itemize}
+		\item Lost customer confidence
+		\item Damage to brand reputation
+		\item Additional QA processes needed
+		\item Production delays
+	\end{itemize}
+	
+	\medskip
+	\textit{Note: This is an illustrative example, actual costs vary by project}
+\end{frame}
+
+\begin{frame}{Legal \& Safety}{Beyond Just Technical Issues}
+	\textbf{Regulatory Compliance (Examples):}
+	\begin{itemize}
+		\item \textbf{Aerospace:} \textbf{AS9100D} (8.1.4) requires counterfeit prevention processes; \textbf{SAE AS5553} specifies measures
+		\item \textbf{Automotive:} \textbf{ISO 26262} requires comprehensive \emph{traceability} and controlled processes 
+		(\(\Rightarrow\) non-traceable parts endanger the safety case)
+		\item \textbf{Medical:} EU-\textbf{MDR}/IVDR with UDI traceability requirements
+		\item \textbf{Industrial:} CE/UL require documented supply chain
+	\end{itemize}
+	
+	\medskip
+	\textbf{Safety-Critical Applications:} Medical devices, automotive, industrial safety, aviation
+	
+	\medskip
+	\textbf{Legal Exposure:}
+	\begin{itemize}
+		\item Product liability for damages caused by non-compliant parts
+		\item Contract/compliance violations (traceability requirements)
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Our Approach}{Multi-Layer Verification Strategy}
+	\textbf{Why Multiple Tests?} Single tests can be misleading; layering increases security
+	
+	\smallskip
+	\textbf{1. DBGMCU Device ID (0xE0042000):}
+	\begin{itemize}
+		\item DEV\_ID \textbf{0x410} (Medium), \textbf{0x412} (Low) - quick plausibility check
+		\item Clones may provide same DEV\_ID; \textbf{REV\_ID} often differs (e.g., GD32)
+	\end{itemize}
+	
+	\smallskip
+	\textbf{2. Flash Size Register (0x1FFFF7E0):}
+	\begin{itemize}
+		\item Authoritative size in kB, more forgery-resistant than tool heuristics
+	\end{itemize}
+	
+	\smallskip
+	\textbf{3. Unique ID (0x1FFFF7E8):}
+	\begin{itemize}
+		\item 96-bit UID for serial number/batch analysis
+	\end{itemize}
+	
+	\smallskip
+	\textbf{4. Peripheral Testing:}
+	\begin{itemize}
+		\item Verify specific peripheral behavior (USB, ADC timing, etc.)
+		\item Compare against known genuine chip characteristics
+	\end{itemize}
+\end{frame}
+\begin{frame}{Functional Verification}{Testing Actual Hardware}
+	\textbf{4. DMA Functional Test:}
+	\begin{itemize}
+		\item Verifies actual peripheral functionality (Mem\,$\leftrightarrow$\,Periph)
+		\item Catches missing/deviating DMA implementations
+	\end{itemize}
+	
+	\medskip
+	\textbf{5. Additional Quick Tests:}
+	\begin{itemize}
+		\item ADC channels and accuracy
+		\item Timer/interrupt timing
+		\item USB enumeration (if used)
+		\item Clock accuracy (HSI/HSE drift)
+	\end{itemize}
+	
+	\medskip
+	\textbf{Best Practice:}
+	\begin{itemize}
+		\item Combine ID checks \emph{plus} functional tests
+		\item Document/archive results (traceability)
+		\item Use conservative timings (derivatives may have different default clocks)
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Today's Workshop}{Practical Chip Verification}
+	\textbf{Hands-On Exercises:}
+	\begin{enumerate}
+		\item Read \texttt{DBGMCU->IDCODE} (\textbf{0xE0042000}) — DEV\_ID/REV\_ID
+		\item Verify flash size via \texttt{0x1FFFF7E0}
+		\item Read UID from \texttt{0x1FFFF7E8}
+		\item DMA functionality test
+	\end{enumerate}
+	
+	\medskip
+	\textbf{Deliverable:} Test firmware, result documentation, decision tree (OK/Reject)
+\end{frame}
+
+\begin{frame}{Prevention Strategy}{How to Avoid Counterfeits}
+	\textbf{Procurement (Best Practice):}
+	\begin{itemize}
+		\item Prefer \textbf{authorized} distributors: Digi-Key, Mouser, Farnell/element14, ST eStore
+		\item Verify authorization on ST website; request CoC/traceability documentation
+		\item Be cautious with prices significantly below market rate
+	\end{itemize}
+	
+	\medskip
+	\textbf{Red Flags:}
+	\begin{itemize}
+		\item No manufacturer packaging/trays
+		\item Lack of traceability documentation
+		\item Unusual fonts/markings; "pulls/refurbs" for new designs
+	\end{itemize}
+	
+	\medskip
+	\textbf{Nevertheless:} Establish QA verification before production \& as part of bring-up process
+\end{frame}
+\section{Configuration}
+% ========================
+% Konfiguration — Blue Pill (STM32F103C6T6A)
+% ========================
+
+% Slide 1 — Ziel & Setup
+\begin{frame}{Configuration}{Goal \& Setup}
+	\textbf{Preparation Goal:}
+	\begin{itemize}
+		\item ST-LINK + STM32CubeProgrammer: Check \textit{Connect} and \textbf{Device ID}
+		\item UART output of test firmware (DEV\_ID/FlashSize/UID)
+		\item Small \textbf{DMA} test (USART1 \textrightarrow{} DMA1)
+	\end{itemize}
+	
+	\medskip
+	\textbf{Required:}
+	\begin{itemize}
+		\item Blue Pill (STM32F103\textbf{C6}T6A), ST-LINK/V2(/V3), 3.3V UART-TTL adapter
+		\item USB cable, 4 Dupont wires for SWD, 3 wires for UART
+	\end{itemize}
+	
+	\medskip
+	\textbf{Premise:} \textit{Configuration} now; \textit{implementation/code} in next section.
+\end{frame}
+% Slide 2 — SWD Wiring (ST-LINK)
+\begin{frame}{Configuration}{SWD — ST-LINK Wiring}
+	\textbf{Pins (Blue Pill / STM32F103):}
+	\begin{itemize}
+		\item \textbf{SWDIO} \textrightarrow{} \textbf{PA13}, \textbf{SWCLK} \textrightarrow{} \textbf{PA14}
+		\item \textbf{GND} \textrightarrow{} GND, \textbf{3V3} \textrightarrow{} 3V3 (reference)
+	\end{itemize}
+	
+	\medskip
+	\textbf{Notes:}
+	\begin{itemize}
+		\item Set interface to \textbf{SWD} in tool (not JTAG)
+		\item Common ground
+		\item Power board with 3.3V (from ST-LINK or external)
+	\end{itemize}
+\end{frame}
+
+% Slide 3 — UART-TTL Wiring (USART1)
+\begin{frame}{Configuration}{UART — 3.3V TTL (USART1)}
+	\textbf{Pins:}
+	\begin{itemize}
+		\item \textbf{PA9 = USART1\_TX} \textrightarrow{} to \textbf{RX} of TTL adapter
+		\item \textbf{PA10 = USART1\_RX} \textrightarrow{} to \textbf{TX} of TTL adapter
+		\item \textbf{GND \textrightarrow{} GND}; do not use 5V TTL
+	\end{itemize}
+	
+	\medskip
+	\textbf{Terminal recommendation:} 115200 8N1, enable CR/LF
+\end{frame}
+
+% Slide 4 — CubeProgrammer: Connect & Device Info
+\begin{frame}{Configuration}{STM32CubeProgrammer — Connect}
+	\textbf{Procedure:}
+	\begin{enumerate}
+		\item \textit{Interface} = \textbf{ST-LINK}, \textit{Frequency} moderate (e.g., 400-1800 kHz)
+		\item Click \textbf{Connect} \textrightarrow{} Device info: \textit{Device ID}, \textit{Revision}, \textit{Flash size}
+		\item Optional: View \textit{OB} (Option Bytes) only, do \textit{not} modify
+	\end{enumerate}
+	
+	\medskip
+	\textbf{Goal of this phase:} Visual verification that ST-LINK and chip communicate correctly (DEV\_ID plausible).
+\end{frame}
+
+% Slide 5 — Which IDs/Signatures are relevant?
+\begin{frame}{Configuration}{Electronic Signature — Addresses}
+	\textbf{In Firmware (for next section):}
+	\begin{itemize}
+		\item \textbf{DBGMCU\_IDCODE} @ \texttt{0xE0042000} \textrightarrow{} \textit{DEV\_ID}/\textit{REV\_ID}
+		\item \textbf{Flash Size} @ \texttt{0x1FFFF7E0} \textrightarrow{} Size in KByte (e.g., 32/64)
+		\item \textbf{UID (96-bit)} starting @ \texttt{0x1FFFF7E8} \textrightarrow{} Serial/Batch analysis
+	\end{itemize}
+	
+	\medskip
+	\textbf{Practice:} DEV\_ID is a quick plausibility check; \textbf{Flash Size} is authoritative.
+\end{frame}
+
+% Slide 6 — Clock/Reset Assumptions for Tests
+\begin{frame}{Configuration}{Clocks \& Reset — Assumptions}
+	\textbf{Sufficient for configuration:}
+	\begin{itemize}
+		\item \textbf{HSI 8MHz} (reset default), no PLL
+		\item \textbf{RCC}: activate only required peripheral clocks:
+		\begin{itemize}
+			\item \textbf{APB2}: GPIOA, AFIO, USART1
+			\item \textbf{AHB}: DMA1 (for DMA test)
+		\end{itemize}
+		\item \textbf{Boot0}=0, \textbf{Boot1}=0 (Flash boot)
+	\end{itemize}
+\end{frame}
+
+% Slide 7 — USART1: Prerequisites for UART Output
+\begin{frame}{Configuration}{USART1 — Configuration Prerequisites}
+	\textbf{RCC:} Enable \textbf{GPIOA}, \textbf{AFIO}, \textbf{USART1}
+	
+	\medskip
+	\textbf{Pins:}
+	\begin{itemize}
+		\item \textbf{PA9} as \textbf{AF Push-Pull} (TX), \textbf{PA10} as \textbf{Input Floating} (RX)
+		\item Optional Remap: \textbf{USART1\_REMAP}=0 (Default: TX/PA9, RX/PA10)
+	\end{itemize}
+	
+	\medskip
+	\textbf{USART1 Basic Parameters:}
+	\begin{itemize}
+		\item 115200 baud @ 8MHz HSI (baud rate calculated later), \textbf{8N1}
+		\item Set \textbf{UE/TE/RE} (\textit{USART\_CR1})
+	\end{itemize}
+\end{frame}
+
+% Slide 8 — DMA: Goals & Mapping (USART1)
+\begin{frame}{Configuration}{DMA — Goals \& Mapping (USART1)}
+	\textbf{Goal:} CPU-offloaded transfer, e.g., send string via DMA to USART1
+	
+	\medskip
+	\textbf{RCC:} Enable \textbf{DMA1}
+	
+	\medskip
+	\textbf{Channel Assignment (F1):}
+	\begin{itemize}
+		\item \textbf{USART1\_TX} \textrightarrow{} \textbf{DMA1 Channel 4}
+		\item \textbf{USART1\_RX} \textrightarrow{} \textbf{DMA1 Channel 5}
+	\end{itemize}
+	
+	\medskip
+	\textbf{USART1:} Set \textbf{CR3.DMAT/DMAR} (TX/RX via DMA)
+\end{frame}
+
+% Slide 9 — DMA: Configuration Checklist (without Code)
+\begin{frame}{Configuration}{DMA — Configuration Checklist}
+	\textbf{TX (DMA1 Ch4):}
+	\begin{itemize}
+		\item \textbf{DIR} = Memory\textrightarrow{}Peripheral
+		\item \textbf{PADDR} = \&USART1\textrightarrow{}DR, \textbf{MADDR} = data buffer
+		\item \textbf{MINC}=1, \textbf{PSIZE/MSIZE}=8 bit, \textbf{TCIE} optional
+	\end{itemize}
+	
+	\medskip
+	\textbf{RX (DMA1 Ch5):}
+	\begin{itemize}
+		\item \textbf{DIR} = Peripheral\textrightarrow{}Memory
+		\item \textbf{CIRC} optional for continuous reception
+	\end{itemize}
+	
+	\medskip
+	\textbf{Start:} Configure channel \textrightarrow{} set \textbf{EN}; monitor \textbf{USART1.TXE/TC} flags.
+\end{frame}
+
+% Slide 10 — Typical Pitfalls
+\begin{frame}{Configuration}{Typical Pitfalls}
+	\begin{itemize}
+		\item \textbf{Levels}: UART adapter must be \textbf{3.3V TTL} (not 5V)
+		\item \textbf{SWD}: Wrong interface or no 3.3V reference \textrightarrow{} no connect
+		\item \textbf{AFIO Remap}: USART1\_REMAP accidentally set \textrightarrow{} pins no longer match
+		\item \textbf{DMA}: Wrong channel (not Ch4/Ch5) or writing \textit{value} instead of address to \textbf{PADDR}
+		\item \textbf{Clock}: Forgot RCC enable for GPIO/USART/DMA
+	\end{itemize}
+	
+	\medskip
+	\textbf{Ready for "Implementation":} Code snippets next (DEV\_ID/FlashSize/UID \textrightarrow{} UART, then DMA-TX).
+\end{frame}
+\section{Manual}
+% =======================
+% Blue Pill (STM32F103C6T6A): Setup, Konfiguration & Interpretation
+% =======================
+
+% Slide A: Hardware & Tools
+\begin{frame}{A. Hardware \& Tools}{What you need \& how to connect}
+	\textbf{Boards/Tools}
+	\begin{itemize}
+		\item Blue Pill \textbf{STM32F103C6T6A} (Low-Density, 32 KB Flash)
+		\item ST-LINK/V2 (or V3) for SWD (Debug/Flash)
+		\item USB-UART (3.3V TTL) for console output
+	\end{itemize}
+	
+	\medskip
+	\textbf{Wiring (Minimum)}
+	\begin{itemize}
+		\item \textit{SWD}: SWDIO\,$\rightarrow$\,PA13, SWCLK\,$\rightarrow$\,PA14, 3V3, GND
+		\item \textit{USART1}: PA9\,(TX)$\rightarrow$\,RX(USB-TTL), PA10\,(RX)$\leftarrow$\,TX(USB-TTL), GND
+	\end{itemize}
+	
+	\medskip
+	\textbf{Software}
+	\begin{itemize}
+		\item STM32CubeIDE (includes CubeMX)
+		\item STM32CubeProgrammer (ST-LINK drivers/flasher)
+		\item (Optional) IDE Serial Terminal Plugin ("TM Terminal")
+	\end{itemize}
+\end{frame}
+
+% Slide B: New Project
+\begin{frame}{B. New Project in STM32CubeIDE}{Project Setup (CubeMX integrated)}
+	\textbf{Setup}
+	\begin{enumerate}
+		\item \textit{File $\rightarrow$ New $\rightarrow$ STM32 Project} $\Rightarrow$ MCU: \texttt{STM32F103C6Tx}
+		\item Assign project name, Toolchain = STM32CubeIDE
+	\end{enumerate}
+	
+	\medskip
+	\textbf{Why CubeIDE?}
+	\begin{itemize}
+		\item Peripheral configuration \& code generator (\texttt{.ioc})
+		\item Integrated debugging via ST-LINK
+		\item Easy to add Eclipse plugins (Terminal)
+	\end{itemize}
+\end{frame}
+
+% Slide C: CubeMX Configuration
+\begin{frame}{C. CubeMX Configuration (.ioc)}{Minimum for ID/UID/USART-DMA Demo}
+	\textbf{System}
+	\begin{itemize}
+		\item \textit{SYS}: \textbf{Debug = Serial Wire} (SWD enabled)
+		\item \textit{Clock}: HSI 8 MHz (sufficient for start), later optionally HSE$\rightarrow$PLL (72 MHz)
+	\end{itemize}
+	
+	\medskip
+	\textbf{USART1 (PA9/PA10)}
+	\begin{itemize}
+		\item Mode: Asynchronous, 115200 8N1, Oversampling=16, no HW flow control
+		\item \textit{DMA Settings}: USART1\_TX $\rightarrow$ DMA1 Ch4, USART1\_RX $\rightarrow$ DMA1 Ch5
+	\end{itemize}
+	
+	\medskip
+	\textbf{Registers we will read}
+	\begin{itemize}
+		\item \texttt{DBGMCU\_IDCODE @ 0xE0042000} (DEV\_ID, REV\_ID)
+		\item \texttt{FLASH\_SIZE @ 0x1FFFF7E0} (Size in kB)
+		\item \texttt{UID[95:0] @ 0x1FFFF7E8} (3$\times$32 Bit)
+	\end{itemize}
+\end{frame}
+
+% Slide D: Flashing & Debugging
+\begin{frame}{D. Flashing \& Debugging with ST-LINK}{From Build to Running Firmware}
+	\textbf{Connection}
+	\begin{enumerate}
+		\item ST-LINK to SWDIO/PA13, SWCLK/PA14, 3V3, GND
+		\item In CubeIDE: \textit{Debug As $\rightarrow$ STM32 MCU Application}
+	\end{enumerate}
+	
+	\medskip
+	\textbf{CubeProgrammer (optionally visible)}
+	\begin{itemize}
+		\item Device Connect $\Rightarrow$ \textit{Device Information}: DEV\_ID, Flash Size
+		\item ST-LINK drivers installed? (Windows: STSW-LINK009)
+	\end{itemize}
+	
+	\medskip
+	\textbf{Typical Pitfalls}
+	\begin{itemize}
+		\item BOOT0 must be 0 (Flash start), common ground (GND) not forgotten
+		\item Reduce SWD frequency with long cables
+	\end{itemize}
+\end{frame}
+
+% Slide E: Display UART Output
+\begin{frame}{E. Display UART Output}{Console Setup}
+	\textbf{In CubeIDE (Serial Terminal)}
+	\begin{enumerate}
+		\item (If not present) \textit{Help $\rightarrow$ Install New Software} $\Rightarrow$ "TM Terminal"
+		\item \textit{Window $\rightarrow$ Show View $\rightarrow$ Terminal} $\Rightarrow$ \textit{Serial}
+		\item Correct COM port, 115200, 8N1, no flow control
+	\end{enumerate}
+	
+	\medskip
+	\textbf{Alternatives}
+	\begin{itemize}
+		\item \texttt{screen}, PuTTY, \texttt{minicom}, etc.
+	\end{itemize}
+\end{frame}
+
+% Slide F: Interpretation
+\begin{frame}{Interpretation}{What do DEV\_ID, FlashSize, UID, BRR mean?}
+	\textbf{Example (your logs)}
+	\begin{itemize}
+		\item \texttt{DBGMCU\_IDCODE = 0x10006412} $\Rightarrow$ \textbf{DEV\_ID 0x412} (Low-Density F10x), \textbf{REV\_ID 0x1000}
+		\item \texttt{Flash size = 32 KB} $\Rightarrow$ matches \textbf{STM32F103C6}
+		\item \texttt{UID} (96-bit) readable $\Rightarrow$ plausible serial identifier
+		\item \texttt{PCLK2 = 8 MHz, BRR = 0x0045, Over = 16} $\Rightarrow$ \textbf{115200 baud} correct
+	\end{itemize}
+	
+	\medskip
+	\textbf{Classification}
+	\begin{itemize}
+		\item \textbf{0x412} is the Low-Density device ID (F101/F102/F103 with 16-32 KB)
+		\item \textbf{Flash Size Register} provides actual size in kB
+		\item \textbf{UID} fixed at 0x1FFFF7E8 (3$\times$32 Bit)
+		\item \textbf{BRR} (with 16x oversampling): $\text{Baud}=\frac{f_{\text{PCLK}}}{16\cdot(\text{Mant}+\text{Frac}/16)}$
+	\end{itemize}
+\end{frame}
+\end{document}
