@@ -94,7 +94,7 @@
 		\item Qualcomm Inc.
 		\item Samsung Electronics
 		\item Huawei Technologies Co. Ltd.
-		\item ST-Microelectronics
+		\item STMicroelectronics
 		\item ...
 	\end{itemize}
 \end{frame}
@@ -118,6 +118,7 @@
 	\end{itemize}
 \end{frame} 
 \section{ARM-Architecture}
+\subsection{General Information}
 \begin{frame}{ARM}
 	{What is a Microcontroller Architecture?}
 	A microcontroller architecture describes the internal structure and functionality of a microcontroller – meaning how the individual components on the chip are interconnected and how they work together.\\
@@ -155,6 +156,7 @@
 	{Architecture Structure}
 	Cortex-M microcontrollers typically implement a modified Harvard architecture, where instruction and data buses are separate internally, but share a unified memory space.
 \end{frame}
+\subsection{ARM-Architecture}
 \begin{frame}{ARM}
 	{ARM - Cortex M Block-Diagram}
 	\begin{figure}
@@ -171,7 +173,7 @@
 		\item NVIC priorities and BASEPRI/PRIMASK (only unmasked and sufficiently prioritized IRQs can wake the system)
 		\item Sleep depth via SCB->SCR.SLEEPDEEP (Deep Sleep vs. normal Sleep)
 		\item WFI/WFE (how you enter sleep)
-		\item Peripheral wake sources (EXTI edge, RTC alarm, USART-RX, I²C address match, etc.)
+		\item Peripheral wake sources (EXTI edge, RTC alarm, USART-RX, I2C address match, etc.)
 	\end{itemize}
 	NVIC is tightly coupled to the Cortex-M core through the System Control Block (SCB), forming the Exception Model
 \end{frame}
@@ -250,6 +252,276 @@
 	\vspace{0.2cm}
 	It is thus a mini memory protection system, similar to an MMU (Memory Management Unit) in a PC - but simpler and without virtual addresses.
 \end{frame}
+% Slide 1: Serial Wire Viewer (SWV) Overview
+\begin{frame}{ARM}
+	{Serial Wire Viewer (SWV)}
+	The Serial Wire Viewer is a real-time trace technology that allows debugging output with minimal overhead.\\
+	\vspace{0.2cm}
+	\textbf{Key Features:}
+	\begin{itemize}
+		\item Real-time data transmission over SWO (Serial Wire Output) pin
+		\item Low overhead monitoring during program execution
+		\item Part of the CoreSight debug architecture
+		\item Uses ITM (Instrumentation Trace Macrocell) with internal FIFO
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{Common Use Cases:}
+	\begin{itemize}
+		\item Printf debugging via ITM
+		\item Event counters and timestamps
+		\item Exception trace (HardFault, interrupts)
+		\item PC sampling for profiling
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{Note:} If ITM FIFO is full, writes may block (polling required)
+\end{frame}
+
+% Slide 2: SWV Components and Configuration
+\begin{frame}{ARM}
+	{SWV - Components and Configuration}
+	\textbf{Hardware Components:}
+	\begin{itemize}
+		\item \textbf{ITM:} Instrumentation Trace Macrocell (32 stimulus ports)
+		\item \textbf{DWT:} Data Watchpoint and Trace unit (PC sampling, cycle counting)
+		\item \textbf{TPIU:} Trace Port Interface Unit (formats and outputs trace data)
+		\item \textbf{SWO:} Serial Wire Output pin (shares pin with JTAG TDO)
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{Important:} SWO only works with SWD debug mode, not parallel to JTAG!
+	\vspace{0.2cm}
+	\textbf{Configuration Requirements:}
+	\begin{itemize}
+		\item Enable trace in DEMCR register
+		\item Configure SWO pin speed (must match debugger)
+		\item Enable desired ITM stimulus ports
+		\item Set up DWT for PC sampling or data trace if needed
+	\end{itemize}
+\end{frame}
+
+% Slide 3: SWV Practical Example
+\begin{frame}[fragile]{ARM}
+	{SWV - Practical Printf Example}
+	\textbf{ITM Printf Implementation:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\tiny]
+		#include "core_cm3.h"
+		
+		int _write(int file, char *ptr, int len) {
+			for (int i = 0; i < len; i++) {
+				// Poll: 0 = FIFO full/port disabled
+				//       1 = at least one word fits
+				while ((ITM->PORT[0].u32 & 1) == 0);
+				
+				// Send character
+				ITM->PORT[0].u8 = *ptr++;
+			}
+			return len;
+		}
+		
+		int main(void) {
+			// Enable TRCENA in DEMCR
+			CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+			
+			// Enable ITM stimulus port 0
+			ITM->TER |= (1 << 0);
+			
+			printf("Hello from SWV!\n");
+			while(1);
+		}
+	\end{lstlisting}
+\end{frame}
+
+% Slide 4: Data Watchpoints Overview
+\begin{frame}{ARM}
+	{Data Watchpoints (DWT)}
+	The Data Watchpoint and Trace (DWT) unit provides hardware-based memory access monitoring and performance profiling.\\
+	\smallskip
+	\textbf{Core Capabilities:}
+	\begin{itemize}
+		\item Comparators for watchpoints (implementation dependent)
+		\item Number available in DWT\_CTRL.NUMCOMP (typically 4 on Cortex-M3)
+		\item Monitor read, write, or read/write access to memory addresses
+		\item Generate debug events or trigger trace without stopping CPU
+		\item Cycle counter (CYCCNT) for precise timing measurements
+	\end{itemize}
+	\smallskip
+	\textbf{Use Cases:}
+	\begin{itemize}
+		\item Detect when a variable is modified (data breakpoint)
+		\item Profile code execution time
+		\item Trace memory access patterns
+		\item Detect buffer overruns or stack corruption
+	\end{itemize}
+\end{frame}
+
+% Slide 5: DWT Configuration and Registers
+\begin{frame}{ARM}
+	{Data Watchpoints - Configuration}
+	\textbf{Key DWT Registers (per comparator):}
+	\begin{itemize}
+		\item \textbf{DWT\_COMPn:} Address to watch
+		\item \textbf{DWT\_MASKn:} Address range (0 = exact match, 1-31 = range size)
+		\item \textbf{DWT\_FUNCTIONn:} Function control (read/write, size, action)
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{FUNCTION Register Options (see ARMv7-M TRM):}
+	\begin{itemize}
+		\item FUNCTION[3:0] = Match mode (data read/write, PC match, etc.)
+		\item DATAVSIZE[1:0] = Data size (byte, halfword, word)
+		\item Action: Generate debug event or emit trace packet
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{Additional DWT Features:}
+	\begin{itemize}
+		\item \textbf{DWT\_CYCCNT:} Cycle counter (free-running 32-bit)
+		\item \textbf{DWT\_CTRL:} Enable cycle counter, read NUMCOMP
+	\end{itemize}
+\end{frame}
+
+% Slide 6: DWT Practical Example
+\begin{frame}[fragile]{ARM}
+	{Data Watchpoints - Practical Example}
+	\textbf{Watch a variable for writes:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\tiny]
+		volatile uint32_t critical_var = 0;
+		
+		void setup_watchpoint(void) {
+			// Enable TRCENA
+			CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+			
+			// Comparator 0: Watch critical_var
+			DWT->COMP0 = (uint32_t)&critical_var;
+			DWT->MASK0 = 0;  // Exact match
+			
+			// FUNCTION: Use CMSIS symbols or see ARMv7-M TRM Table B3-11
+			// Example: Data write match (exact bits depend on implementation)
+			// Refer to: interrupt.memfault.com/blog/cortex-m-watchpoints
+			DWT->FUNCTION0 = (1 << 4) |  // DATAVMATCH
+			(1 << 0);    // FUNCTION bits (consult TRM)
+		}
+		
+		int main(void) {
+			setup_watchpoint();
+			
+			critical_var = 42;  // Triggers watchpoint!
+			while(1);
+		}
+	\end{lstlisting}
+\end{frame}
+
+% Slide 7: Flash Patch and Breakpoint (FPB) Overview
+\begin{frame}{ARM}
+	{Flash Patch and Breakpoint Unit (FPB)}
+	The FPB allows setting breakpoints in code memory and optionally patching code execution to RAM.\\
+	\vspace{0.2cm}
+	\textbf{Two Main Functions:}
+	\begin{itemize}
+		\item \textbf{Breakpoints:} Instruction comparators (implementation dependent)
+		\item \textbf{Code Patching:} Remap to RAM (if RMPSPT flag supported)
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{Implementation Dependent (read FP\_CTRL):}
+	\begin{itemize}
+		\item NUM\_CODE: Instruction comparators (typically 6 on Cortex-M3)
+		\item NUM\_LIT: Literal comparators (typically 2)
+		\item RMPSPT: Remap support flag (not always present)
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{Note:} FPB is a debug feature, not intended for field updates. Code region base depends on MCU memory map (e.g., STM32: 0x0800\_0000).
+\end{frame}
+
+% Slide 8: FPB Configuration and Registers
+\begin{frame}{ARM}
+	{Flash Patch - Configuration}
+	\textbf{Key FPB Registers:}
+	\begin{itemize}
+		\item \textbf{FP\_CTRL:} Enable FPB, read NUM\_CODE/NUM\_LIT/RMPSPT
+		\item \textbf{FP\_COMPn:} Comparator n configuration
+		\item \textbf{FP\_REMAP:} Base address of replacement code in RAM
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{Comparator Configuration (FP\_COMPn):}
+	\begin{itemize}
+		\item Bit [0]: ENABLE (1 = active)
+		\item Bits [1:0]: REPLACE field (2-bit, see ARMv7-M TRM)
+		\begin{itemize}
+			\item 00 = Remap to RAM (if RMPSPT supported)
+			\item 01/10/11 = Breakpoint on instruction/halfword
+		\end{itemize}
+		\item Bits [31:2]: Code address bits [31:2] (word-aligned)
+	\end{itemize}
+	\vspace{0.2cm}
+	\textbf{References:}
+	\begin{itemize}
+		\item ARMv7-M Architecture Reference Manual (Section C1.11)
+		\item Doulos Application Note on FPB
+	\end{itemize}
+\end{frame}
+
+% Slide 9: FPB Practical Example
+\begin{frame}[fragile]{ARM}
+	{Flash Patch - Practical Example}
+	\textbf{Patch a buggy function in Flash:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\tiny]
+		// Buggy function in Flash
+		void buggy_function(void) {
+			// Contains a bug
+		}
+		
+		// Fixed version in RAM
+		__attribute__((section(".data")))
+		void fixed_function(void) {
+			// Corrected implementation
+		}
+		
+		void setup_flash_patch(void) {
+			// Check if remap is supported
+			if (!(FP->CTRL & FP_CTRL_KEY_Msk)) return;
+			
+			// Enable FPB
+			FP->CTRL |= FP_CTRL_ENABLE_Msk | FP_CTRL_KEY_Msk;
+			
+			// Set remap base (SRAM start, shifted right by 5)
+			FP->REMAP = 0x20000000 >> 5;
+			
+			// Comparator 0: Remap buggy_function to fixed_function
+			// REPLACE = b00 for remap, ENABLE = 1
+			uint32_t flash_addr = (uint32_t)buggy_function;
+			FP->COMP[0] = (flash_addr & ~0x3u) | 1u;  // ENABLE=1, REPLACE=00
+		}
+	\end{lstlisting}
+\end{frame}
+
+% Slide 10: Debug Features Comparison
+\begin{frame}{ARM}
+	{Debug Features - Quick Comparison}
+	\begin{center}
+		\small
+		\begin{tabular}{|l|l|l|}
+			\hline
+			\textbf{Feature} & \textbf{Purpose} & \textbf{Overhead} \\ \hline
+			SWV/ITM & Printf, trace output & Low (FIFO may block) \\ \hline
+			DWT & Data watchpoints, profiling & Minimal \\ \hline
+			FPB & Breakpoints, code patching & Debug-only \\ \hline
+		\end{tabular}
+	\end{center}
+	
+	\vspace{0.2cm}
+	\textbf{Resource Limits (implementation dependent):}
+	\begin{itemize}
+		\item ITM: 32 stimulus ports
+		\item DWT: Read DWT\_CTRL.NUMCOMP (typically 4)
+		\item FPB: Read FP\_CTRL.NUM\_CODE/NUM\_LIT (typically 6+2)
+	\end{itemize}
+	
+	\vspace{0.2cm}
+	\textbf{Common Debugger Support:}
+	\begin{itemize}
+		\item J-Link: Full support for all features
+		\item ST-Link: SWV supported, limited FPB
+		\item OpenOCD: Basic SWV, DWT support
+	\end{itemize}
+\end{frame}
+\subsection{CMSIS vs HAL}
 \begin{frame}[fragile]
 	\frametitle{CMSIS vs HAL}
 	\framesubtitle{CMSIS (Cortex Microcontroller Software Interface Standard)}
@@ -399,6 +671,7 @@ NRF_GPIO->OUTSET = (1 << 13);
 	\end{itemize}
 \end{frame}
 \section{Practice}
+\subsection{Blink-Test:Mixed}
 \begin{frame}{Practice}
 	{Blink Test}
 	Just as the "Hello World" project is commonly used in pure software programming, here a Blink project is described. This project makes an arbitrary LED blink using an ARM microcontroller. In my case, a \textbf{STM32F103C6T6A}.
@@ -692,7 +965,7 @@ GPIOC->BSRR = GPIO_BSRR_BS13;
 	\textbf{Safe approach (clean-then-set):}
 	\begin{itemize}
 		\item \texttt{GPIOC->CRH \&= \textasciitilde(0xFu << 20);} \quad // clear CNF:MODE for PC13
-		\item \texttt{GPIOC->CRH |=  (0x2u << 20);} \quad // CNF=00, MODE=10 $\Rightarrow$ Output 2\,MHz push-pull
+		\item \texttt{GPIOC->CRH |=  (0x2u < 20);} \quad // CNF=00, MODE=10 $\Rightarrow$ Output 2\,MHz push-pull
 	\end{itemize}
 	
 	\textbf{Key takeaway:} Always \texttt{Clock $\rightarrow$ Clear $\rightarrow$ Set}.
@@ -997,5 +1270,229 @@ GPIOC->CRH |= (0x2u << 20);
 	
 	\medskip
 	\textbf{When to use ODR:} Only when reading current output state is needed
+\end{frame}
+\begin{frame}[fragile]{Practice}{Complete LED Blink Example}
+	\textbf{Goal:} Blink LED on PC13 with 1 second intervals
+	
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		while (1) {
+			// LED On (active-low)
+			GPIOC->BSRR = (1u << (13+16));
+			delay_ms(1000);
+			
+			// LED Off
+			GPIOC->BSRR = (1u << 13);
+			delay_ms(1000);
+		}
+	\end{lstlisting}
+	
+	\textbf{What this does:}
+	\begin{itemize}
+		\item Toggles PC13 between LOW and HIGH
+		\item 1 second ON, 1 second OFF
+		\item Assumes LED is active-low (common on STM32 boards)
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Understanding the Bit Calculations}
+	\textbf{LED On: Reset PC13 to LOW}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		GPIOC->BSRR = (1u << (13+16));
+	\end{lstlisting}
+	
+	\textbf{Calculation:}
+	\begin{itemize}
+		\item \texttt{13+16 = 29} → BR13 bit position
+		\item \texttt{1u << 29 = 0x20000000}
+		\item Sets bit 29 in BSRR → resets PC13 to LOW
+	\end{itemize}
+	
+	\medskip
+	\textbf{LED Off: Set PC13 to HIGH}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\small]
+		GPIOC->BSRR = (1u << 13);
+	\end{lstlisting}
+	
+	\textbf{Calculation:}
+	\begin{itemize}
+		\item \texttt{1u << 13 = 0x00002000}
+		\item Sets bit 13 in BSRR → sets PC13 to HIGH
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Manual Calculation vs CMSIS Macros}
+	\textbf{The code uses manual bit shifts:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		GPIOC->BSRR = (1u << (13+16));  // Reset
+		GPIOC->BSRR = (1u << 13);       // Set
+	\end{lstlisting}
+	
+	\textbf{Equivalent using CMSIS macros:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		GPIOC->BSRR = GPIO_BSRR_BR13;  // Reset
+		GPIOC->BSRR = GPIO_BSRR_BS13;  // Set
+	\end{lstlisting}
+	
+	\textbf{Which is better?}
+	\begin{itemize}
+		\item \textbf{CMSIS macros:} More readable, self-documenting
+		\item \textbf{Manual shifts:} Shows understanding of register layout
+		\item \textbf{Recommendation:} Use CMSIS macros in production code
+	\end{itemize}
+	
+	\textbf{Both produce identical machine code!}
+\end{frame}
+\begin{frame}{Practice}{Understanding Active-Low LEDs}
+	\textbf{Why reset (LOW) turns LED ON?}
+	
+	\medskip
+	\textbf{Active-Low Configuration:}
+	\begin{itemize}
+		\item LED cathode connected to PC13
+		\item LED anode connected to VCC (3.3V)
+		\item Current flows when pin is LOW
+	\end{itemize}
+	
+	\begin{center}
+		\texttt{VCC (3.3V) → LED → PC13 → GND}
+	\end{center}
+	
+	\medskip
+	\textbf{Logic:}
+	\begin{itemize}
+		\item PC13 = LOW (0V) → Current flows → LED \textbf{ON}
+		\item PC13 = HIGH (3.3V) → No voltage difference → LED \textbf{OFF}
+	\end{itemize}
+	
+	\medskip
+	\textbf{Common on:} Blue Pill, Black Pill, STM32 Discovery boards
+\end{frame}
+\begin{frame}[fragile]{Practice}{The delay\_ms() Function}
+	\textbf{Purpose:} Create blocking delay in milliseconds
+	
+	\medskip
+	\textbf{Typical implementation (busy-wait):}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		void delay_ms(uint32_t ms) {
+			for (uint32_t i = 0; i < ms; i++) {
+				for (volatile uint32_t j = 0; j < 8000; j++) {
+					// Empty loop (CPU frequency dependent)
+				}
+			}
+		}
+	\end{lstlisting}
+	
+	\textbf{Characteristics:}
+	\begin{itemize}
+		\item Blocks CPU (wastes power)
+		\item Accuracy depends on CPU frequency
+		\item Simple but inefficient
+	\end{itemize}
+	
+	\textbf{Better alternatives:} SysTick timer, HAL\_Delay(), RTOS delays
+\end{frame}
+\begin{frame}[fragile]{Practice}{Complete Blink Program}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\tiny]
+		#include "stm32f1xx.h"
+		
+		void delay_ms(uint32_t ms);
+		
+		int main(void) {
+			// Enable GPIOC clock
+			RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+			
+			// Configure PC13: Output Push-Pull, 2MHz
+			GPIOC->CRH &= ~(0xFu << 20);
+			GPIOC->CRH |= (0x2u << 20);
+			
+			while (1) {
+				GPIOC->BSRR = (1u << (13+16));  // LED On
+				delay_ms(1000);
+				
+				GPIOC->BSRR = (1u << 13);       // LED Off
+				delay_ms(1000);
+			}
+		}
+		
+		void delay_ms(uint32_t ms) {
+			for (uint32_t i = 0; i < ms; i++) {
+				for (volatile uint32_t j = 0; j < 8000; j++);
+			}
+		}
+	\end{lstlisting}
+\end{frame}
+\begin{frame}{Practice}{Program Flow Analysis}
+	\textbf{Initialization Phase:}
+	\begin{enumerate}
+		\item Enable GPIOC clock via RCC
+		\item Configure PC13 as output (Push-Pull, 2MHz)
+	\end{enumerate}
+	
+	\medskip
+	\textbf{Main Loop (infinite):}
+	\begin{enumerate}
+		\item Write to BSRR → Reset PC13 (LED ON)
+		\item Wait 1000ms
+		\item Write to BSRR → Set PC13 (LED OFF)
+		\item Wait 1000ms
+		\item Repeat forever
+	\end{enumerate}
+	
+	\medskip
+	\textbf{Timing:}
+	\begin{itemize}
+		\item Total period: 2000ms (2 seconds)
+		\item Frequency: 0.5 Hz
+		\item Duty cycle: 50\% (equal ON/OFF time)
+	\end{itemize}
+\end{frame}
+\begin{frame}[fragile]{Practice}{Common Mistakes \& Improvements}
+	\textbf{Common Mistakes:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		// Mistake 1: No clock enable
+		GPIOC->CRH |= (0x2u << 20);  // Ignored!
+		
+		// Mistake 2: Using ODR (not optimal)
+		GPIOC->ODR &= ~(1 << 13);  // RMW operation
+	\end{lstlisting}
+	
+	\textbf{Improvements:}
+	\begin{lstlisting}[language=C, basicstyle=\ttfamily\footnotesize]
+		// Better: Use HAL_Delay() or SysTick
+		HAL_Delay(1000);
+		
+		// Best: Non-blocking with timer ISR
+		void TIM2_IRQHandler(void) {
+			GPIOC->ODR ^= (1 << 13);
+		}
+	\end{lstlisting}
+\end{frame}
+\begin{frame}{Practice}{Debugging: LED Not Blinking?}
+	\textbf{Checklist when LED doesn't work:}
+	
+	\medskip
+	\textbf{1. Clock Configuration:}
+	\begin{itemize}
+		\item Is GPIOC clock enabled? Check \texttt{RCC->APB2ENR}
+		\item Read back register to verify
+	\end{itemize}
+	
+	\textbf{2. Pin Configuration:}
+	\begin{itemize}
+		\item Is PC13 configured as output? Check \texttt{GPIOC->CRH}
+		\item Correct MODE bits (not 00)?
+		\item Correct CNF bits (00 for Push-Pull)?
+	\end{itemize}
+	
+	\textbf{3. Pin State:}
+	\begin{itemize}
+		\item Read \texttt{GPIOC->ODR} to check output state
+		\item Is pin toggling? Use debugger or logic analyzer
+	\end{itemize}
+	
+	\textbf{4. Hardware:}
+	\begin{itemize}
+		\item LED polarity correct?
+		\item Current-limiting resistor present?
+		\item Pin not used by debugger (SWD/JTAG)?
+	\end{itemize}
 \end{frame}
 \end{document}
