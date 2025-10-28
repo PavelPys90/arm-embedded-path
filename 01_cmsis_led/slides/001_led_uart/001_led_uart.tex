@@ -1,0 +1,371 @@
+% Showcase Präsentation mit SimSchoolDark Theme
+\documentclass{beamer}
+
+% Theme laden
+\usetheme{SimSchoolDark}
+
+% Für Python Code Highlighting
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabu}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.45,0.45,0.45}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},
+	commentstyle=\color{codegreen}\itshape,
+	keywordstyle=\color{magenta}\bfseries,
+	stringstyle=\color{codepurple},
+	numberstyle=\tiny\color{codegray},
+	basicstyle=\ttfamily\small,  % kompakter als footnotesize, aber noch gut lesbar
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=none,                % ich empfehle in Beamer lieber keine Zeilennummern
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=4,                   % einheitlich 4 Spaces für Tabs
+	frame=single,                % optional: Rahmen um den Code
+	rulecolor=\color{gray!50},   % dezente Rahmenfarbe
+	aboveskip=5pt,
+	belowskip=5pt,
+	xleftmargin=4pt, xrightmargin=4pt,
+	columns=fullflexible         % sorgt für gleichmäßige Zeichenabstände
+}
+
+\lstset{style=mystyle}
+
+% Python Code Style
+%\lstset{
+%	language=Python,
+%	basicstyle=\ttfamily\small,
+%	keywordstyle=\color{simschooldarkest}\bfseries,
+%	stringstyle=\color{simschoolmedium},
+%	commentstyle=\color{simschoollight}\itshape,
+%	numberstyle=\tiny\color{simschoollight},
+%	numbers=left,
+%	breaklines=true,
+%	frame=single,
+%	rulecolor=\color{simschoolmedium},
+%	backgroundcolor=\color{simschoolbg!50},
+%	showstringspaces=false,
+%	tabsize=4
+%}
+
+% Präsentationsinfos
+\title{ARM-Embedded-Path}
+\subtitle{LED - UART}
+\author{Pavel Pys}
+\date{\today}
+%\institute{}
+\begin{document}
+\begin{frame}{}
+	\maketitle
+\end{frame}
+\begin{frame}{Overview}
+	\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{CMSIS Training: UART \& Timing}
+	\begin{center}
+		\Large\textbf{Task: The "Morse-Bot"}
+		\medskip
+		
+		\normalsize From UART input to timed LED signal
+	\end{center}
+\end{frame}
+\begin{frame}{Recap: What was CMSIS?}
+	\begin{itemize}
+		\item \textbf{Problem:} Each ARM chip has different peripheral addresses (GPIO, Timer...).
+		\item \textbf{CMSIS-Core (Cortex-M):} Unified access to core functions (e.g., interrupts, \texttt{SysTick}).
+		\item \textbf{CMSIS-Device (STM32F103):} Provides header files (\texttt{stm32f103x6.h}).
+	\end{itemize}
+	
+	\medskip
+	\textbf{What we learned (Blinky):}
+	\begin{enumerate}
+		\item Enable peripheral clock (Port C): \texttt{RCC->APB2ENR}
+		\item Configure GPIO pin (PC13): \texttt{GPIOC->CRH}
+		\item Toggle pin: \texttt{GPIOC->ODR} (or \texttt{BSRR})
+	\end{enumerate}
+	
+	\medskip
+	\textbf{Today:} Same principle for UART + Timing.
+\end{frame}
+
+\begin{frame}{From Arduino to CMSIS: \texttt{Serial} \& \texttt{delay}}
+	\textbf{Arduino world (Abstraction):}
+	\begin{itemize}
+		\item \texttt{Serial.begin(9600);} \hfill \textit{Magic?}
+		\item \texttt{char c = Serial.read();} \hfill \textit{Blocking? Interrupt?}
+		\item \texttt{delay(100);} \hfill \textit{How? Active waiting? Timer?}
+	\end{itemize}
+	
+	\bigskip
+	\textbf{CMSIS/Bare-Metal world (Control):}
+	\begin{itemize}
+		\item We must configure EVERYTHING ourselves:
+		\begin{enumerate}
+			\item \textbf{Clock} for UART (e.g., 8MHz from HSI).
+			\item \textbf{GPIO pins} (PA9/PA10) for "Alternate Function" (AF).
+			\item \textbf{Baud rate} (9600) manually calculated and written to \texttt{BRR} (Baud Rate Register).
+			\item \textbf{UART} itself enabled (Transmit/Receive).
+		\end{enumerate}
+		\item For \texttt{delay()} we use a standard Cortex-M timer: The \textbf{SysTick}.
+	\end{itemize}
+\end{frame}
+
+\section{SysTick \& UART}
+
+\begin{frame}{Architecture 1: Timing with SysTick Timer}
+	\begin{itemize}
+		\item \textbf{What is SysTick?} A simple 24-bit "countdown" timer located \textit{directly in the Cortex-M core} (not with peripherals).
+		\item \textbf{What for?} Ideal as a "time base" for a system (e.g., for an RTOS or, as here, for a simple \texttt{delay} function).
+		\item \textbf{CMSIS-Core function:} \texttt{SysTick\_Config(uint32\_t ticks)}
+	\end{itemize}
+	
+	\textbf{The idea:}
+	\begin{enumerate}
+		\item We configure SysTick to trigger an interrupt exactly \textbf{1000 times per second} (every 1ms).
+		\item \texttt{SysTick\_Config(SystemCoreClock / 1000);}
+		\item \texttt{SystemCoreClock} is a global variable (from \texttt{system\_stm32f10xx.c}) containing our CPU clock (8MHz HSI).
+		\item $8,000,000 / 1000 = 8000$ ticks.
+		\item SysTick counts down from 8000 to 0, triggers an \textbf{interrupt}, and restarts.
+	\end{enumerate}
+\end{frame}
+
+\begin{frame}{Architecture 2: What is UART (Bare-Metal)?}
+	\begin{itemize}
+		\item \textbf{UART:} Universal Asynchronous Receiver/Transmitter.
+		\item \textbf{STM32F103:} Has \texttt{USART1}, \texttt{USART2}, \texttt{USART3}. We use \texttt{USART1}.
+	\end{itemize}
+	
+	\textbf{Step 1: Clock (RCC)}
+	\begin{itemize}
+		\item \texttt{USART1} is on the \texttt{APB2} bus.
+		\item \texttt{GPIOA} (for pins) is also on the \texttt{APB2} bus.
+		\item We need clock for: \texttt{USART1}, \texttt{GPIOA} and \texttt{AFIO} (Alternate Function IO).
+		\item Register: \texttt{RCC->APB2ENR}
+	\end{itemize}
+	\textbf{Step 2: GPIO (Pins)}
+	\begin{itemize}
+		\item "Blue Pill" uses \texttt{PA9} (TX) and \texttt{PA10} (RX) for \texttt{USART1}.
+		\item These pins must be configured:
+		\begin{itemize}
+			\item \texttt{PA9 (TX)}: \textbf{Alternate Function, Push-Pull}, 50MHz
+			\item \texttt{PA10 (RX)}: \textbf{Input, Floating} (or Pull-up)
+		\end{itemize}
+		\item Register: \texttt{GPIOA->CRH} (Control Register High, for pins 9 \& 10)
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Architecture 2: UART (Cont.)}
+	\textbf{Step 3: Baud Rate (BRR)}
+	\begin{itemize}
+		\item Formula (from RM0008 Ref. Manual):
+		\item $\text{Baud} = f_{CLK} / (16 \times \text{USARTDIV})$
+		\item $f_{CLK}$ (clock for APB2/USART1) = 8MHz (HSI)
+		\item $\text{USARTDIV} = 8,000,000 / (16 \times 9600) \approx 52.083$
+		\item Mantissa = 52. Fraction = $0.083 \times 16 \approx 1$.
+		\item Register: \texttt{USART1->BRR = (52 << 4) | 1;}
+	\end{itemize}
+	
+	\medskip
+	\textbf{Step 4: Activation (CR1)}
+	\begin{itemize}
+		\item Enable UART (\texttt{UE}), enable transmit (\texttt{TE}), enable receive (\texttt{RE}).
+		\item Register: \texttt{USART1->CR1}
+	\end{itemize}
+\end{frame}
+
+\section{Practice}
+
+\begin{frame}[fragile]{Practice: SysTick (Part 1: Globals \& ISR)}
+	
+	We need a global variable that increments in the interrupt.
+	\begin{lstlisting}[language=C, style=mystyle]
+		// IMPORTANT: volatile! Tells the compiler:
+		// "This variable can change at any time."
+		volatile uint32_t g_msTicks = 0;
+	\end{lstlisting}
+	
+	\textbf{The Interrupt Service Routine (ISR) in \texttt{main.c}:}
+	\begin{lstlisting}[language=C, style=mystyle]
+		// This is the "callback" from the SysTick interrupt
+		// The name is predefined in the startup code (vector table).
+		void SysTick_Handler(void) {
+			g_msTicks++; // Every millisecond +1
+		}
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Practice: SysTick (Part 2: \texttt{Delay\_ms()})}
+	\textbf{Our \texttt{delay} function:}
+	\begin{lstlisting}[language=C, style=mystyle]
+		void Delay_ms(uint32_t ms) {
+			uint32_t start = g_msTicks;
+			
+			// Wait until target difference is reached
+			while ((g_msTicks - start) < ms) {
+				// Active waiting (Polling)
+				// Better (energy saving): __WFI(); (Wait For Interrupt)
+			}
+		}
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Practice: SysTick (Part 2: \texttt{Delay\_ms()})}
+	\textbf{Initialization in \texttt{main()}:}
+	\begin{lstlisting}[language=C, style=mystyle]
+		// SystemCoreClock is (hopefully) 8000000
+		SysTick_Config(SystemCoreClock / 1000); // 1ms Tick
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Practice: UART Configuration Part 1 (Clock \& GPIO)}
+	\textbf{Excerpt for \texttt{UART1\_Init()}:}
+	
+	\begin{lstlisting}[language=C, style=mystyle]
+		// 1. Enable clocks (RCC)
+		// RM0008, Section 7.3.7 (APB2 peripheral clock enable register)
+		RCC->APB2ENR |= RCC_APB2ENR_USART1EN | // UART1 Clock
+		RCC_APB2ENR_IOPAEN   | // GPIOA Clock
+		RCC_APB2ENR_AFIOEN;  // Alternate Function Clock
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Practice: UART Configuration Part 1 (Clock \& GPIO)}
+	\begin{lstlisting}[language=C, style=mystyle]
+		// 2. GPIOs (PA9 TX, PA10 RX)
+		// RM0008, Section 9.2.2 (GPIO port configuration register high)
+		
+		// PA9 (TX): AF Push-Pull, 50MHz (Mode: 11, CNF: 10 -> 1011)
+		GPIOA->CRH &= ~(0xF << 4); // Clear bits for pin 9
+		GPIOA->CRH |=  (0xB << 4); // Set 1011
+		
+		// PA10 (RX): Input Floating (Mode: 00, CNF: 01 -> 0100)
+		GPIOA->CRH &= ~(0xF << 8); // Clear bits for pin 10
+		GPIOA->CRH |=  (0x4 << 8); // Set 0100
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Practice: UART Configuration Part 2 (Baud Rate \& Activation)}
+	\textbf{Excerpt for \texttt{UART1\_Init()} (Cont.):}
+	
+	\begin{lstlisting}[language=C, style=mystyle]
+		// 3. Baud rate (BRR) - RM0008, Section 27.3.4
+		// 8MHz HSI / (16 * 9600) = 52.083
+		// Mantissa = 52 (0x34), Fraction = 1 (0x1)
+		USART1->BRR = (0x34 << 4) | 0x01;
+	\end{lstlisting}
+	
+	\begin{lstlisting}[language=C, style=mystyle]
+		// 4. Enable UART (CR1) - RM0008, Section 27.3.7
+		USART1->CR1 |= USART_CR1_UE | // Enable UART
+		USART_CR1_TE | // Enable Transmitter
+		USART_CR1_RE;  // Enable Receiver
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Practice: UART Polling (Part 1: Flags)}
+	\textbf{Polling:} We actively check the status bits (flags).
+	
+	\medskip
+	\textbf{Flags in \texttt{USART1->SR} (Status Register):}
+	\begin{itemize}
+		\item \texttt{USART\_SR\_TXE} (Transmit Data Register Empty):
+		\textit{"Transmit buffer is empty, you may send the next byte."}
+		
+		\medskip
+		\item \texttt{USART\_SR\_RXNE} (Read Data Register Not Empty):
+		\textit{"Attention! A new byte is in the receive buffer!"}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Practice: UART Polling (Part 2: Functions)}
+	\textbf{Functions (e.g., in \texttt{main.c} or \texttt{uart.c}):}
+	\begin{lstlisting}[language=C, style=mystyle]
+		// Send a single character (blocking)
+		void UART1_SendChar(char c) {
+			// Wait until transmit register is empty (TXE flag)
+			while (!(USART1->SR & USART_SR_TXE)); 
+			USART1->DR = c; // Write data to Data Register
+		}
+	\end{lstlisting}
+	
+	\begin{lstlisting}[language=C, style=mystyle]
+		// Receive a single character (blocking)
+		char UART1_GetChar(void) {
+			// Wait until data is received (RXNE flag)
+			while (!(USART1->SR & USART_SR_RXNE));
+			return (char)(USART1->DR & 0xFF); // Read data and return it
+		}
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Exercise: "Morse-Bot" (Part 1: Rules)}
+	\textbf{Goal:} Combine all parts.
+	
+	\medskip
+	\textbf{Base Timing:}
+	\begin{itemize}
+		\item \texttt{DIT\_MS = 100} (e.g., 100 milliseconds)
+	\end{itemize}
+	
+	\textbf{Morse Rules:}
+	\begin{itemize}
+		\item \textbf{Dit (Dot):} LED ON (1 * \texttt{DIT\_MS}), LED OFF (1 * \texttt{DIT\_MS})
+		\item \textbf{Dah (Dash):} LED ON (3 * \texttt{DIT\_MS}), LED OFF (1 * \texttt{DIT\_MS})
+		\item \textbf{Pause (Letters):} (3 * \texttt{DIT\_MS})
+		\item \textbf{Pause (Word/Space):} (7 * \texttt{DIT\_MS})
+	\end{itemize}
+\end{frame}
+
+\begin{frame}{Exercise: "Morse-Bot" (Part 2: Tasks)}
+	\textbf{Tasks:}
+	\begin{enumerate}
+		\item Create GPIO init for PC13 (as in Exercise 1).
+		\item Create SysTick init and \texttt{Delay\_ms} function.
+		\item Create \texttt{UART1\_Init}, \texttt{SendChar}, \texttt{GetChar} functions.
+		\item Write functions: \texttt{morse\_dit()} and \texttt{morse\_dah()} (use \texttt{Delay\_ms}).
+		\item Write a function \texttt{morse\_char(char c)} using a \texttt{switch} statement (e.g., for 'A', 'B', 'C', 'S', 'O').
+		\item \textbf{Main Loop:} Read a character with \texttt{UART1\_GetChar()}, send it back via \texttt{UART1\_SendChar()} (echo!) and call \texttt{morse\_char()}.
+	\end{enumerate}
+\end{frame}
+
+\begin{frame}{Recap: What we learned}
+	\begin{enumerate}
+		\item \texttt{SysTick} is the CMSIS standard for timing bases (e.g., \texttt{delay}).
+		\item \texttt{volatile} is essential for shared variables between ISR and Main Loop.
+		\item Peripheral configuration (UART) always follows the pattern:
+		\begin{itemize}
+			\item \textbf{Clock (RCC) $\rightarrow$ Pins (GPIO) $\rightarrow$ Peripheral Config}
+		\end{itemize}
+		\item Register programming requires constant reference to the \textbf{Reference Manual (RM0008)}.
+	\end{enumerate}
+\end{frame}
+
+\begin{frame}{Outlook: Problems \& Next Steps}
+	\textbf{Problem with current solution:}
+	\begin{itemize}
+		\item \texttt{UART1\_GetChar()} is \textbf{blocking}. The CPU only waits and cannot do anything else (e.g., Morse).
+		\item \texttt{Delay\_ms()} is \textbf{blocking}. The CPU only waits and cannot receive UART characters during that time.
+	\end{itemize}
+	
+	\medskip
+	\textbf{Outlook (Part 3):}
+	\begin{itemize}
+		\item Efficient reception with \textbf{UART Interrupts} (The \texttt{RXNE} flag triggers an ISR).
+		\item We fill a buffer (ring buffer) in the background.
+		\item We build a "Non-Blocking" Morse machine (State Machine).
+	\end{itemize}
+\end{frame}
+\end{document}
