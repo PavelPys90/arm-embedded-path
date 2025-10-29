@@ -13,7 +13,8 @@
 extern volatile uint32_t g_msTicks;
 typedef enum{
 	MODE_BLINKYALL,
-	MODE_ALARM_FAST
+	MODE_ALARM_FAST,
+	MODE_CHRISTMAS
 }LED_Mode_t;
 
 void LED_Init(void);
@@ -29,7 +30,7 @@ int main(void){
 	LED_Init();
 	LED_Off(0);
 	while (1){
-		LED_Modus(MODE_ALARM_FAST, 500);
+		LED_Modus(MODE_CHRISTMAS, 300);
 	}
 }
 // Inplementations
@@ -135,6 +136,25 @@ void LED_Modus(LED_Mode_t mode, uint32_t delay){
 			Delay_ms(alarmDelay);
 
 			break;
+
+		case MODE_CHRISTMAS:
+			uint32_t offsetDelay = 700;
+			GPIOC->BSRR = GPIO_BSRR_BR13;
+			Delay_ms(delay);
+			GPIOA->BSRR = GPIO_BSRR_BS0;
+			Delay_ms(delay);
+			GPIOA->BSRR = GPIO_BSRR_BS10;
+			Delay_ms(delay);
+			GPIOB->BSRR = GPIO_BSRR_BS9;
+			Delay_ms(delay+offsetDelay);
+			GPIOB->BSRR = GPIO_BSRR_BR9;
+			Delay_ms(delay);
+			GPIOA->BSRR = GPIO_BSRR_BR10;
+			Delay_ms(delay);
+			GPIOA->BSRR = GPIO_BSRR_BR0;
+			Delay_ms(delay);
+			GPIOC->BSRR = GPIO_BSRR_BS13;
+			Delay_ms(delay+offsetDelay);
 	}
 
 }
