@@ -73,246 +73,378 @@
 \begin{frame}{Overview}
 	\tableofcontents
 \end{frame}
-\section{Introduction}
+% --- KOMPLETTER FOLIENSATZ TEIL 2 (v2.0) ---
+
+\section{Introduction \& Motivation}
+
 \begin{frame}{CMSIS Training: UART \& Timing}
 	\begin{center}
 		\Large\textbf{Task: The "Morse-Bot"}
 		\medskip
 		
-		\normalsize From UART input to timed LED signal
+		\normalsize From UART Input to a Timed LED Signal
 	\end{center}
 \end{frame}
-\begin{frame}{Recap: What was CMSIS?}
+
+\begin{frame}{Recap: What is CMSIS?}
 	\begin{itemize}
-		\item \textbf{Problem:} Each ARM chip has different peripheral addresses (GPIO, Timer...).
-		\item \textbf{CMSIS-Core (Cortex-M):} Unified access to core functions (e.g., interrupts, \texttt{SysTick}).
+		\item \textbf{Problem:} Every ARM chip has different addresses for peripherals (GPIO, Timer...).
+		\item \textbf{CMSIS-Core (Cortex-M):} Uniform access to core functions (e.g., Interrupts, \texttt{SysTick}).
 		\item \textbf{CMSIS-Device (STM32F103):} Provides header files (\texttt{stm32f103x6.h}).
 	\end{itemize}
 	
 	\medskip
-	\textbf{What we learned (Blinky):}
+	\textbf{What was learned (Blinky):}
 	\begin{enumerate}
-		\item Enable peripheral clock (Port C): \texttt{RCC->APB2ENR}
+		\item Enable clock for peripheral (Port C): \texttt{RCC->APB2ENR}
 		\item Configure GPIO pin (PC13): \texttt{GPIOC->CRH}
 		\item Toggle pin: \texttt{GPIOC->ODR} (or \texttt{BSRR})
 	\end{enumerate}
+\end{frame}
+
+\begin{frame}{Motivation: The 1kB "Blinky"}
+	\textbf{The Observation (Comparison):}
 	
 	\medskip
-	\textbf{Today:} Same principle for UART + Timing.
-\end{frame}
-
-\begin{frame}{From Arduino to CMSIS: \texttt{Serial} \& \texttt{delay}}
-	\textbf{Arduino world (Abstraction):}
-	\begin{itemize}
-		\item \texttt{Serial.begin(9600);} \hfill \textit{Magic?}
-		\item \texttt{char c = Serial.read();} \hfill \textit{Blocking? Interrupt?}
-		\item \texttt{delay(100);} \hfill \textit{How? Active waiting? Timer?}
-	\end{itemize}
+	\begin{columns}
+		\column{0.5\textwidth}
+		\textbf{Arduino (e.g., ESP8266)}
+		\begin{itemize}
+			\item "Blinky" (with \texttt{delay()})
+			\item \textbf{\sim 250+ KByte Flash}
+			\item Simple: \texttt{digitalWrite(D1, HIGH);}
+		\end{itemize}
+		
+		\column{0.5\textwidth}
+		\textbf{CMSIS (STM32F103)}
+		\begin{itemize}
+			\item "Blinky" (with SysTick)
+			\item \textbf{\sim 1 KByte Flash}
+			\item More complex: \texttt{GPIOC->BSRR = ...;}
+		\end{itemize}
+	\end{columns}
 	
 	\bigskip
-	\textbf{CMSIS/Bare-Metal world (Control):}
-	\begin{itemize}
-		\item We must configure EVERYTHING ourselves:
-		\begin{enumerate}
-			\item \textbf{Clock} for UART (e.g., 8MHz from HSI).
-			\item \textbf{GPIO pins} (PA9/PA10) for "Alternate Function" (AF).
-			\item \textbf{Baud rate} (9600) manually calculated and written to \texttt{BRR} (Baud Rate Register).
-			\item \textbf{UART} itself enabled (Transmit/Receive).
-		\end{enumerate}
-		\item For \texttt{delay()} we use a standard Cortex-M timer: The \textbf{SysTick}.
-	\end{itemize}
+	\begin{center}
+		\Large\textbf{Where are the remaining 249 KByte?!}
+	\end{center}
 \end{frame}
 
-\section{SysTick \& UART}
-
-\begin{frame}{Architecture 1: Timing with SysTick Timer}
+\begin{frame}[fragile]{Motivation: Control instead of Convenience}
+	\textbf{Answer: There is no "overhead".}
+	
+	\medskip
+	\textbf{1. No Framework Overhead}
 	\begin{itemize}
-		\item \textbf{What is SysTick?} A simple 24-bit "countdown" timer located \textit{directly in the Cortex-M core} (not with peripherals).
-		\item \textbf{What for?} Ideal as a "time base" for a system (e.g., for an RTOS or, as here, for a simple \texttt{delay} function).
-		\item \textbf{CMSIS-Core function:} \texttt{SysTick\_Config(uint32\_t ticks)}
+		\item \textbf{Arduino:} \texttt{digitalWrite(PIN\_NAME);}
+		\item \textit{What happens:} Calls 10+ C++ functions, translates pin names to port/bit, checks for timer conflicts...
+		\item \textbf{CMSIS:} \texttt{GPIOC->BSRR = GPIO\_BSRR\_BR13;}
+		\item \textit{What happens:} Compiles down to 3-4 machine instructions.
 	\end{itemize}
 	
-	\textbf{The idea:}
+	\medskip
+	\textbf{2. No Operating System (RTOS) / Stacks}
+	\begin{itemize}
+		\item \textbf{ESP8266:} \emph{Always} loads a FreeRTOS and the Wi-Fi stack just to execute \texttt{delay()}.
+		\item \textbf{The CMSIS code:} The \texttt{Delay\_ms()} is 3 lines of C code.
+	\end{itemize}
+	
+	\medskip
+	\rightarrow \textbf{Conclusion:} Convenience is traded for \textbf{Control, Efficiency}, and \textbf{Minimal Memory Footprint}.
+\end{frame}
+
+\section{Architecture \& Basics}
+
+\begin{frame}{Architecture 1: Timing with the SysTick Timer}
+	\begin{itemize}
+		\item \textbf{What is SysTick?} A simple 24-bit "countdown" timer located \textit{directly within the Cortex-M Core}.
+		\item \textbf{What is it for?} Ideal as a "time base" (ticker) for a simple \texttt{delay} function.
+		\item \textbf{CMSIS-Core Function:} \texttt{SysTick\_Config(uint32\_t ticks)}
+	\end{itemize}
+	\textbf{The Idea:}
 	\begin{enumerate}
-		\item We configure SysTick to trigger an interrupt exactly \textbf{1000 times per second} (every 1ms).
+		\item The SysTick is configured to trigger an interrupt every \textbf{1ms}.
 		\item \texttt{SysTick\_Config(SystemCoreClock / 1000);}
-		\item \texttt{SystemCoreClock} is a global variable (from \texttt{system\_stm32f10xx.c}) containing our CPU clock (8MHz HSI).
+		\item \texttt{SystemCoreClock} is a global variable (from \texttt{system\_stm32f10xx.c}) holding the CPU clock (e.g., 8MHz HSI).
 		\item $8,000,000 / 1000 = 8000$ ticks.
-		\item SysTick counts down from 8000 to 0, triggers an \textbf{interrupt}, and restarts.
+		\item The SysTick counts from 8000 down to 0, triggers an interrupt (\texttt{SysTick\_Handler}), and restarts.
 	\end{enumerate}
 \end{frame}
 
 \begin{frame}{Architecture 2: What is UART (Bare-Metal)?}
-	\begin{itemize}
-		\item \textbf{UART:} Universal Asynchronous Receiver/Transmitter.
-		\item \textbf{STM32F103:} Has \texttt{USART1}, \texttt{USART2}, \texttt{USART3}. We use \texttt{USART1}.
-	\end{itemize}
-	
 	\textbf{Step 1: Clock (RCC)}
 	\begin{itemize}
-		\item \texttt{USART1} is on the \texttt{APB2} bus.
-		\item \texttt{GPIOA} (for pins) is also on the \texttt{APB2} bus.
-		\item We need clock for: \texttt{USART1}, \texttt{GPIOA} and \texttt{AFIO} (Alternate Function IO).
+		\item A clock signal is needed for:
+		\begin{itemize}
+			\item \texttt{USART1} (the peripheral itself)
+			\item \texttt{GPIOA} (for the pins)
+			\item \texttt{AFIO} (Alternate Function IO)
+		\end{itemize}
 		\item Register: \texttt{RCC->APB2ENR}
 	\end{itemize}
+	
 	\textbf{Step 2: GPIO (Pins)}
 	\begin{itemize}
-		\item "Blue Pill" uses \texttt{PA9} (TX) and \texttt{PA10} (RX) for \texttt{USART1}.
-		\item These pins must be configured:
+		\item The "Blue Pill" board uses \texttt{PA9} (TX) and \texttt{PA10} (RX) for \texttt{USART1}.
+		\item Configuration (in the \texttt{GPIOA->CRH} register):
 		\begin{itemize}
-			\item \texttt{PA9 (TX)}: \textbf{Alternate Function, Push-Pull}, 50MHz
-			\item \texttt{PA10 (RX)}: \textbf{Input, Floating} (or Pull-up)
+			\item \texttt{PA9 (TX)}: \textbf{Alternate Function, Push-Pull}, 10MHz
+			\item \texttt{PA10 (RX)}: \textbf{Input, Floating}
 		\end{itemize}
-		\item Register: \texttt{GPIOA->CRH} (Control Register High, for pins 9 \& 10)
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{Architecture 2: UART (Cont.)}
+\begin{frame}{Architecture 2: What is UART (Bare-Metal)? (Cont.)}
 	\textbf{Step 3: Baud Rate (BRR)}
 	\begin{itemize}
-		\item Formula (from RM0008 Ref. Manual):
-		\item $\text{Baud} = f_{CLK} / (16 \times \text{USARTDIV})$
-		\item $f_{CLK}$ (clock for APB2/USART1) = 8MHz (HSI)
-		\item $\text{USARTDIV} = 8,000,000 / (16 \times 9600) \approx 52.083$
-		\item Mantissa = 52. Fraction = $0.083 \times 16 \approx 1$.
-		\item Register: \texttt{USART1->BRR = (52 << 4) | 1;}
+		\item A divisor must be calculated $\rightarrow$ See Excursus!
+		\item Register: \texttt{USART1->BRR}
 	\end{itemize}
 	
-	\medskip
 	\textbf{Step 4: Activation (CR1)}
 	\begin{itemize}
-		\item Enable UART (\texttt{UE}), enable transmit (\texttt{TE}), enable receive (\texttt{RE}).
+		\item Enable the UART (\texttt{UE}), Transmitter (\texttt{TE}), and Receiver (\texttt{RE}).
 		\item Register: \texttt{USART1->CR1}
 	\end{itemize}
 \end{frame}
 
-\section{Practice}
 
-\begin{frame}[fragile]{Practice: SysTick (Part 1: Globals \& ISR)}
-	
-	We need a global variable that increments in the interrupt.
-	\begin{lstlisting}[language=C, style=mystyle]
-		// IMPORTANT: volatile! Tells the compiler:
-		// "This variable can change at any time."
-		volatile uint32_t g_msTicks = 0;
-	\end{lstlisting}
-	
-	\textbf{The Interrupt Service Routine (ISR) in \texttt{main.c}:}
-	\begin{lstlisting}[language=C, style=mystyle]
-		// This is the "callback" from the SysTick interrupt
-		// The name is predefined in the startup code (vector table).
-		void SysTick_Handler(void) {
-			g_msTicks++; // Every millisecond +1
-		}
-	\end{lstlisting}
+\section{Excursus: Register Magic}
+\begin{frame}{Excursus: Bit Masking (The Register Magic)}
+\textbf{The Problem:}
+\begin{itemize}
+\item The goal is to configure Pin \textbf{PA9} (e.g., to \texttt{1001}).
+\item The 32-bit register \texttt{GPIOA->CRH} must be modified.
+\item \textbf{Objective:} Change *only* the 4 bits for Pin 9, without destroying the other 7 pins!
+\end{itemize}
+
+\medskip
+\textbf{The Register Layout (\texttt{CRH}):}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+	\hline
+	Pin & \dots & Pin 10 & \textbf{Pin 9} & Pin 8 \\ \hline
+	Bits & \dots & 11 \quad 10 \quad 9 \quad 8 & \textbf{7 \quad 6 \quad 5 \quad 4} & 3 \quad 2 \quad 1 \quad 0 \\ \hline
+\end{tabular}
+\end{center}
+
+\medskip
+\rightarrow \textbf{Bits 7, 6, 5, and 4 must be modified.}
 \end{frame}
 
-\begin{frame}[fragile]{Practice: SysTick (Part 2: \texttt{Delay\_ms()})}
-	\textbf{Our \texttt{delay} function:}
-	\begin{lstlisting}[language=C, style=mystyle]
-		void Delay_ms(uint32_t ms) {
-			uint32_t start = g_msTicks;
-			
-			// Wait until target difference is reached
-			while ((g_msTicks - start) < ms) {
-				// Active waiting (Polling)
-				// Better (energy saving): __WFI(); (Wait For Interrupt)
-			}
-		}
-	\end{lstlisting}
+\begin{frame}[fragile]{Excursus: Bit Masking (Part 1: The Concept)}
+\textbf{The "Read-Modify-Write" Operation}
+\begin{itemize}
+\item It is not possible to write only 4 bits. The entire 32-bit register must be read, modified, and written back.
+\item This operation always has two steps:
+\begin{enumerate}
+	\item \textbf{Clearing (Masking):} Set the target bits to 0 (with \texttt{\&= \~...}).
+	\item \textbf{Setting (Writing):} Set the new bits to 1 (with \texttt{|= ...}).
+\end{enumerate}
+\end{itemize}
+
+\bigskip
+\textbf{Step 1: Setting the old bits for Pin 9 to 0.}
+\begin{lstlisting}[language=C, style=mystyle]
+// Short form (which is used):
+GPIOA->CRH &= ~(0xF << 4);
+\end{lstlisting}
 \end{frame}
 
-\begin{frame}[fragile]{Practice: SysTick (Part 2: \texttt{Delay\_ms()})}
-	\textbf{Initialization in \texttt{main()}:}
-	\begin{lstlisting}[language=C, style=mystyle]
-		// SystemCoreClock is (hopefully) 8000000
-		SysTick_Config(SystemCoreClock / 1000); // 1ms Tick
-	\end{lstlisting}
+\begin{frame}[fragile]{Excursus: Bit Masking (Part 1: Detailed Analysis)}
+\textbf{Analysis of: \texttt{GPIOA->CRH \&= ~(0xF << 4);}}
+
+\begin{itemize}
+\item \texttt{0xF} $\Rightarrow$ \texttt{0b1111}
+\item \textit{(The 4-bit "pin mask")}
+
+\medskip
+\item \texttt{(0xF << 4)} $\Rightarrow$ \texttt{0b...0000 1111 0000}
+\item \textit{(Mask is shifted to the position of Pin 9: Bits 4-7)}
+
+\medskip
+\item \texttt{\~ (0xF << 4)} $\Rightarrow$ \texttt{0b...1111 0000 1111}
+\item \textit{(The "clear mask". Only bits 4-7 are 0)}
+
+\medskip
+\item \texttt{... \&= ...} $\Rightarrow$ (Bitwise AND assignment)
+\item \textit{(Everything ANDed with 1 remains. Everything ANDed with 0 becomes 0.)}
+\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Practice: UART Configuration Part 1 (Clock \& GPIO)}
-	\textbf{Excerpt for \texttt{UART1\_Init()}:}
-	
-	\begin{lstlisting}[language=C, style=mystyle]
-		// 1. Enable clocks (RCC)
-		// RM0008, Section 7.3.7 (APB2 peripheral clock enable register)
-		RCC->APB2ENR |= RCC_APB2ENR_USART1EN | // UART1 Clock
-		RCC_APB2ENR_IOPAEN   | // GPIOA Clock
-		RCC_APB2ENR_AFIOEN;  // Alternate Function Clock
-	\end{lstlisting}
+\begin{frame}[fragile]{Excursus: Bit Masking (Part 2: Setting)}
+\textbf{Step 2: Setting the new bits for Pin 9.}
+\begin{itemize}
+\item The register now has zeroes at the Pin 9 position.
+\end{itemize}
+
+\bigskip
+\begin{lstlisting}[language=C, style=mystyle]
+GPIOA->CRH |= (0x9 << 4);
+\end{lstlisting}
+
+\textbf{What is happening here?}
+\begin{itemize}
+\item \texttt{0x9} $\Rightarrow$ \texttt{0b1001} (The new value for 10MHz AF-Out)
+\item \texttt{<< 4} $\Rightarrow$ "Shift the value to bit position 4"
+\item \texttt{(0x9 << 4)} $\Rightarrow$ \texttt{0b...10010000} (The "set mask")
+\item \texttt{|=} $\Rightarrow$ "Bitwise OR assignment"
+\item \textit{(The zeroes are overwritten with \texttt{1001})}
+\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Practice: UART Configuration Part 1 (Clock \& GPIO)}
-	\begin{lstlisting}[language=C, style=mystyle]
-		// 2. GPIOs (PA9 TX, PA10 RX)
-		// RM0008, Section 9.2.2 (GPIO port configuration register high)
-		
-		// PA9 (TX): AF Push-Pull, 50MHz (Mode: 11, CNF: 10 -> 1011)
-		GPIOA->CRH &= ~(0xF << 4); // Clear bits for pin 9
-		GPIOA->CRH |=  (0xB << 4); // Set 1011
-		
-		// PA10 (RX): Input Floating (Mode: 00, CNF: 01 -> 0100)
-		GPIOA->CRH &= ~(0xF << 8); // Clear bits for pin 10
-		GPIOA->CRH |=  (0x4 << 8); // Set 0100
-	\end{lstlisting}
+\begin{frame}{Excursus: Baud Rate (Part 1: The Formula)}
+\textbf{The Problem:}
+\begin{itemize}
+\item The goal is to set 9600 Baud (Bits/s).
+\item A \textbf{divisor} must be calculated that divides the system clock ($f_{CLK}$) down to 9600.
+\end{itemize}
+
+\textbf{The Formula (from RM0008):}
+\begin{itemize}
+\item $\text{Baud} = f_{CLK} / (16 \times \text{USARTDIV})$
+\end{itemize}
+
+\textbf{Step 1: Solve for \texttt{USARTDIV}}
+\begin{itemize}
+\item $f_{CLK} = 8,000,000$ (The 8MHz HSI)
+\item $\text{USARTDIV} = 8,000,000 / (16 \times 9600)$
+\item $\text{USARTDIV} = 8,000,000 / 153,600$
+\item $\text{USARTDIV} = \textbf{52.0833...}$
+\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Practice: UART Configuration Part 2 (Baud Rate \& Activation)}
-	\textbf{Excerpt for \texttt{UART1\_Init()} (Cont.):}
-	
-	\begin{lstlisting}[language=C, style=mystyle]
-		// 3. Baud rate (BRR) - RM0008, Section 27.3.4
-		// 8MHz HSI / (16 * 9600) = 52.083
-		// Mantissa = 52 (0x34), Fraction = 1 (0x1)
-		USART1->BRR = (0x34 << 4) | 0x01;
-	\end{lstlisting}
-	
-	\begin{lstlisting}[language=C, style=mystyle]
-		// 4. Enable UART (CR1) - RM0008, Section 27.3.7
-		USART1->CR1 |= USART_CR1_UE | // Enable UART
-		USART_CR1_TE | // Enable Transmitter
-		USART_CR1_RE;  // Enable Receiver
-	\end{lstlisting}
+\begin{frame}{Excursus: Baud Rate (Part 2: The \texttt{BRR} Register)}
+\textbf{Problem:} How is \textbf{52.083} stored in a 16-bit register?
+
+\medskip
+\textbf{Solution:} The \texttt{BRR} (Baud Rate Register) is split:
+
+\begin{center}
+\begin{tabular}{|c|c|c|}
+	\hline
+	Bits & \textbf{[15 : 4]} (12 Bits) & \textbf{[3 : 0]} (4 Bits) \\ \hline
+	Content & \texttt{DIV\_Mantissa} & \texttt{DIV\_Fraction} \\ 
+	Meaning & Integer Part & Fractional Part (16ths) \\ \hline
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Step 2: Splitting the number \texttt{52.083}}
+\begin{itemize}
+\item \textbf{Mantissa:} The integer part is \textbf{52} $\Rightarrow$ \texttt{0x34}
+\item \textbf{Fraction:} The fractional part is \textbf{0.083...}
+\item \textit{Conversion to 4-bit value:} $0.083 \times 16 = 1.33...$
+\item \textit{Rounding up:} \textbf{1} $\Rightarrow$ \texttt{0x01}
+\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Practice: UART Polling (Part 1: Flags)}
-	\textbf{Polling:} We actively check the status bits (flags).
+\begin{frame}[fragile]{Excursus: Baud Rate (Part 3: The Code)}
+\textbf{Step 3: Assembling the parts in code}
+\begin{itemize}
+\item Mantissa = \texttt{0x34} (52)
+\item Fraction = \texttt{0x01} (1)
+\end{itemize}
+
+\bigskip
+\begin{lstlisting}[language=C, style=mystyle]
+USART1->BRR = (0x34 << 4) | 0x01;
+\end{lstlisting}
+
+\textbf{What is happening here?}
+\begin{itemize}
+\item \texttt{(0x34 << 4)} $\Rightarrow$ \texttt{0x340}
+\item The mantissa (52) is shifted left by 4 bits.
+\item \textit{(Binary: \texttt{...0011 0100 0000})}
+
+\medskip
+\item \texttt{| 0x01} $\Rightarrow$ \texttt{0x341}
+\item The fraction (1) is ORed into the empty 4 bits \texttt{[3:0]}.
+\item \textit{(Binary: \texttt{...0011 0100 0001})}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Excursus: Baud Rate (Part 4: The Result)}
+\textbf{Analysis of: \texttt{USART1->BRR = 0x341;}}
+
+\begin{itemize}
+\item The register now holds the value \texttt{0x341}.
+\item The hardware reads this as:
+\begin{itemize}
+	\item Mantissa = \texttt{0x34} = 52
+	\item Fraction = \texttt{0x1} = 1
+\end{itemize}
+\item The resulting divisor is: $52 + (1/16) = \textbf{52.0625}$
+\end{itemize}
+
+\medskip
+\textbf{Comparison:}
+\begin{itemize}
+\item Desired divisor: 52.0833...
+\item Achieved divisor: 52.0625
+\end{itemize}
+\rightarrow \textit{The deviation is < 0.1\%, which is perfect for UART.}
+\end{frame}
+
+\section{Practice \& Exercise}
+
+% --- FRAME 1: Die Logik (Was soll der Code tun?) ---
+
+\begin{frame}[fragile]{Practice: The "Echo-Bot" (Part 1: The Logic)}
+	\textbf{Test: All Parts (SysTick, LED, UART) Together}
 	
 	\medskip
-	\textbf{Flags in \texttt{USART1->SR} (Status Register):}
+	\textbf{Objective:} The MCU should send back (echo) every received UART character and toggle the LED upon reception.
+	
+	\bigskip
+	\textbf{The core \texttt{main()} loop:}
+	\begin{lstlisting}[language=C, style=mystyle]
+while (1){
+	// 1. Wait (blocking) until a character arrives
+	char c = UART1_GetChar();
+	// 2. Send the same character back immediately (Echo)
+	UART1_SendChar(c);	
+	// 3. Toggle the LED as visual feedback
+	LED_Toggle();
+}
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 2: Das Setup (Wie teste ich den Code?) ---
+
+\begin{frame}{Practice: The "Echo-Bot" (Part 2: Setup \& Test)}
+	
+	\textbf{1. Hardware Setup (Wiring)}
 	\begin{itemize}
-		\item \texttt{USART\_SR\_TXE} (Transmit Data Register Empty):
-		\textit{"Transmit buffer is empty, you may send the next byte."}
-		
-		\medskip
-		\item \texttt{USART\_SR\_RXNE} (Read Data Register Not Empty):
-		\textit{"Attention! A new byte is in the receive buffer!"}
+		\item Connect your USB-UART Converter (FTDI, CH340, etc.)
+		\item Converter \textbf{TX} $\rightarrow$ Blue Pill \textbf{PA10 (RX)}
+		\item Converter \textbf{RX} $\rightarrow$ Blue Pill \textbf{PA9 (TX)}
+		\item Converter \textbf{GND} $\rightarrow$ Blue Pill \textbf{GND}
+	\end{itemize}
+	
+	
+	
+	\medskip
+	\textbf{2. Host Setup (PC Terminal)}
+	\begin{itemize}
+		\item Use a Serial Terminal (e.g., PuTTY, CoolTerm, VS Code).
+		\item Settings: \textbf{9600} Baud, 8-N-1, No Flow Control.
+	\end{itemize}
+	
+	\medskip
+	\textbf{3. Acceptance Criteria (Verification)}
+	\begin{itemize}
+		\item If you type \textbf{'A'} in the terminal...
+		\item ...you must see \textbf{'A'} echoed back.
+		\item ...the PC13 LED must toggle \textbf{once}.
 	\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Practice: UART Polling (Part 2: Functions)}
-	\textbf{Functions (e.g., in \texttt{main.c} or \texttt{uart.c}):}
-	\begin{lstlisting}[language=C, style=mystyle]
-		// Send a single character (blocking)
-		void UART1_SendChar(char c) {
-			// Wait until transmit register is empty (TXE flag)
-			while (!(USART1->SR & USART_SR_TXE)); 
-			USART1->DR = c; // Write data to Data Register
-		}
-	\end{lstlisting}
-	
-	\begin{lstlisting}[language=C, style=mystyle]
-		// Receive a single character (blocking)
-		char UART1_GetChar(void) {
-			// Wait until data is received (RXNE flag)
-			while (!(USART1->SR & USART_SR_RXNE));
-			return (char)(USART1->DR & 0xFF); // Read data and return it
-		}
-	\end{lstlisting}
-\end{frame}
-
 \begin{frame}{Exercise: "Morse-Bot" (Part 1: Rules)}
-	\textbf{Goal:} Combine all parts.
+	\textbf{Objective:} Extend the "Echo-Bot" to a "Morse-Bot".
+	
+	\medskip
+	\textbf{Requirement:} Receive a character via UART, output it as Morse code on the LED.
 	
 	\medskip
 	\textbf{Base Timing:}
@@ -329,43 +461,339 @@
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{Exercise: "Morse-Bot" (Part 2: Tasks)}
+\begin{frame}[fragile]{Exercise: "Morse-Bot" (Part 2: Tasks)}
 	\textbf{Tasks:}
 	\begin{enumerate}
-		\item Create GPIO init for PC13 (as in Exercise 1).
-		\item Create SysTick init and \texttt{Delay\_ms} function.
-		\item Create \texttt{UART1\_Init}, \texttt{SendChar}, \texttt{GetChar} functions.
-		\item Write functions: \texttt{morse\_dit()} and \texttt{morse\_dah()} (use \texttt{Delay\_ms}).
-		\item Write a function \texttt{morse\_char(char c)} using a \texttt{switch} statement (e.g., for 'A', 'B', 'C', 'S', 'O').
-		\item \textbf{Main Loop:} Read a character with \texttt{UART1\_GetChar()}, send it back via \texttt{UART1\_SendChar()} (echo!) and call \texttt{morse\_char()}.
+		\item Create two new functions:
+		\item \texttt{void morse\_dit(void)}
+		\item \texttt{void morse\_dah(void)}
+		\item \textit{(These will call \texttt{LED\_On()}, \texttt{LED\_Off()} and \texttt{Delay\_ms()})}
+		
+		\medskip
+		\item Create a function \texttt{void morse\_char(char c)}.
+		\item Use a \texttt{switch (c)} statement.
+		\item Implement (e.g.): 'S' (\texttt{...}), 'O' (\texttt{---}), 'A' (\texttt{.-})
+		
+		\medskip
+		\item Modify your \texttt{main()} loop:
+		\item \texttt{char c = UART1\_GetChar();}
+		\item \texttt{UART1\_SendChar(c);} // Echo (good for debugging)
+		\item \texttt{morse\_char(c);}
+		\item \texttt{Delay\_ms(DIT\_MS * 3);} // Pause after the letter
 	\end{enumerate}
 \end{frame}
 
-\begin{frame}{Recap: What we learned}
-	\begin{enumerate}
-		\item \texttt{SysTick} is the CMSIS standard for timing bases (e.g., \texttt{delay}).
-		\item \texttt{volatile} is essential for shared variables between ISR and Main Loop.
-		\item Peripheral configuration (UART) always follows the pattern:
-		\begin{itemize}
-			\item \textbf{Clock (RCC) $\rightarrow$ Pins (GPIO) $\rightarrow$ Peripheral Config}
-		\end{itemize}
-		\item Register programming requires constant reference to the \textbf{Reference Manual (RM0008)}.
-	\end{enumerate}
-\end{frame}
+\section{Debugging \& Outlook}
 
-\begin{frame}{Outlook: Problems \& Next Steps}
-	\textbf{Problem with current solution:}
+\begin{frame}[fragile]{Debugging (Trap 1): UART-TX (Sending) Failed}
+	\textbf{Problem:} The "life sign" test (\texttt{UART1\_SendChar('!')}) sends nothing. The TX line (PA9) remains silent.
+	
+	\bigskip
+	\textbf{The Cause: Register Typo}
 	\begin{itemize}
-		\item \texttt{UART1\_GetChar()} is \textbf{blocking}. The CPU only waits and cannot do anything else (e.g., Morse).
-		\item \texttt{Delay\_ms()} is \textbf{blocking}. The CPU only waits and cannot receive UART characters during that time.
+		\item \texttt{CRH} = Control Register \textbf{High} (Pins 8-15)
+		\item \texttt{CRL} = Control Register \textbf{Low} (Pins 0-7)
+	\end{itemize}
+	
+	\bigskip
+	\textbf{The Faulty Code:}
+	\begin{lstlisting}[language=C, style=mystyle]
+// Pin 9 (TX) Configuration
+// Clears bits for Pin 9 in CRH (Correct)
+GPIOA->CRH &= ~(0xF << 4); 
+// Writes bits for Pin 1 in CRL (FATAL MISTAKE!)
+GPIOA->CRL |= (0x9 << 4); 
+	\end{lstlisting}
+	
+	\medskip
+	\textbf{Realization:} Pin 9 (TX) was \texttt{0000} (Input Analog) and could not transmit. Pin 1 was configured instead (uselessly).
+\end{frame}
+
+\begin{frame}[fragile]{Debugging (Trap 2): UART-RX (The Problem)}
+	\textbf{Problem:} The code (e.g., "Echo-Bot") appears "frozen". The terminal remains empty.
+	
+	\bigskip
+	\textbf{The (Supposed) Error:}
+	\begin{lstlisting}[language=C, style=mystyle]
+while (1){
+	// THE PROGRAM IS WAITING HERE!
+	char c = UART1_GetChar(); 	
+	// These lines are NEVER reached
+	// until a character is received.
+	UART1_SendChar('!'); 
+	LED_Toggle();
+}
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Debugging (Trap 2): UART-RX (The Realization)}
+\textbf{Realization: This is not a bug, this is the design!}
+	\begin{itemize}
+		\item The \texttt{UART1\_GetChar()} function is \textbf{blocking}.
+		\item It waits in its *own* \texttt{while} loop for the \texttt{RXNE} flag.
+		\item The program "hangs" as expected, waiting for input.
 	\end{itemize}
 	
 	\medskip
-	\textbf{Outlook (Part 3):}
+	\textbf{Best Debug Strategy (The "Life Sign" Test):}
 	\begin{itemize}
-		\item Efficient reception with \textbf{UART Interrupts} (The \texttt{RXNE} flag triggers an ISR).
-		\item We fill a buffer (ring buffer) in the background.
-		\item We build a "Non-Blocking" Morse machine (State Machine).
+		\item \textbf{Always} test Transmission (TX) first and in isolation (e.g., in a 1-second loop), \textit{before} waiting for Reception (RX).
 	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Debugging (Trap 3): C-Syntax \& Compiler Errors}
+	\textbf{Problem 1 (Fatal):} Linker Error: \texttt{undefined reference to 'tolwer'}
+	\begin{itemize}
+		\item \textbf{Cause:} Simple typo. The function is \texttt{tolower()}.
+		\item \textbf{Realization:} The linker (\texttt{ld}) fails if a function was declared (or implicitly assumed) but never \textit{defined} (implemented).
+	\end{itemize}
+	
+	\bigskip
+	\textbf{Problem 2 (Warning):} Compiler Warning: \texttt{expected 'char' but argument is 'char *'}
+	\begin{itemize}
+		\item \textbf{Cause:} \texttt{UART1\_SendChar("R");} instead of \texttt{UART1\_SendChar('R');}
+		\item \textbf{Central C-Realization:}
+		\begin{itemize}
+			\item \texttt{'R'} (single quotes): Is a \texttt{char}. A single number (ASCII value).
+			\item \texttt{"R"} (double quotes): Is a \texttt{char*}. A pointer to a string (\texttt{\{'R', '\textbackslash{}0'\}}) in memory.
+		\end{itemize}
+		\end{itemize}
+		\end{frame}
+		
+		\begin{frame}{Recap: What Was Learned}
+			\textbf{Learned:}
+			\begin{enumerate}
+				\item \texttt{SysTick} is the CMSIS standard for timing (\texttt{delay}).
+				\item \texttt{volatile} is essential for shared variables (ISR vs. main).
+				\item \textbf{Bit Masking:} The \texttt{\&= \~...} and \texttt{|= ...} dance (Read-Modify-Write).
+				\item \textbf{Baud Rate:} How to calculate $f_{CLK}$ and the divisor (Mantissa/Fraction) into the \texttt{BRR} register.
+				\item \textbf{C-Syntax:} The difference between \texttt{'c'} (char) and \texttt{"c"} (char*).
+				\item \textbf{Debugging:} \texttt{CRH} vs. \texttt{CRL}, and testing \texttt{TX} before \texttt{RX}.
+			\end{enumerate}
+		\end{frame}
+		
+		\begin{frame}{Outlook: The Problem with "Blocking"}
+			\textbf{The BIG Problem with the current code:}
+			\begin{itemize}
+				\item \texttt{UART1\_GetChar()} is \textbf{blocking}.
+				\item \texttt{Delay\_ms()} is \textbf{blocking}.
+				\item \textit{The system "freezes" while it waits or flashes Morse code. It misses new UART data during this time!}
+			\end{itemize}
+			
+			\bigskip
+			\textbf{Outlook (Part 3): The Solution}
+			\begin{itemize}
+				\item \textbf{Interrupts:} UART reception in the background (ISR).
+				\item \textbf{Ring Buffers:} Buffering data.
+				\item \textbf{State Machines:} Flashing Morse code without blocking the \texttt{main} loop.
+			\end{itemize}
+		\end{frame}
+% --- FRAME 1: Das Problem (Warum blockieren schlecht ist) ---
+\begin{frame}{Part 3: The "Blocking" Problem}
+\textbf{Analysis of our Morse-Bot (Part 2):}
+\begin{itemize}
+\item The CPU is "deaf" while it is sending Morse code.
+\item It is completely stuck inside the \texttt{Delay\_ms()} function.
+\item During this time, it cannot call \texttt{UART1\_GetChar()} to check for new data.
+\end{itemize}
+	
+	\bigskip
+	\textbf{The Consequence: UART Overrun}
+\begin{enumerate}
+\item User types 'S' $\rightarrow$ \texttt{morse\_char('s')} starts (blocks for ~500ms).
+\item User types 'O' (while 'S' is still flashing).
+\item The 'O' byte hits a "deaf" MCU. The UART hardware register (\texttt{DR}) is overwritten before the CPU can read it.
+\item \textbf{Data loss.}
+	\end{enumerate}
+	\end{frame}
+	
+	% --- FRAME 2: Die Lösung (Die "Briefkasten"-Analogie) ---
+\begin{frame}{Part 3: The Solution: Decoupling}
+\textbf{The Goal: Decouple Reception from Processing.}
+\begin{itemize}
+\item \textbf{Reception (Fast):} Must happen in the background, immediately when data arrives.
+\item \textit{$\rightarrow$ This is the job of an \textbf{Interrupt}.}
+\item \textbf{Processing (Slow):} The \texttt{main()} loop can do this when it has time (e.g., flashing the Morse code).
+\end{itemize}
+
+\bigskip
+\textbf{The Analogy: The "Mailbox"}
+\begin{itemize}
+\item The \textbf{Interrupt (ISR)} is the \textit{Mailman} who quickly drops a letter in the box (he doesn't wait).
+\item The \textbf{Ring Buffer} is the \textit{Mailbox} itself.
+\item The \textbf{Main Loop} is \textit{You}, checking the mailbox whenever you have a free moment.
+\end{itemize}
+\end{frame}
+
+% --- FRAME 3: Was IST ein Ringbuffer? (Definition) ---
+\begin{frame}{Architecture: What is a Ring Buffer?}
+\textbf{Also called: Circular Buffer or FIFO (First-In, First-Out)}
+
+\medskip
+\begin{itemize}
+\item A simple array in RAM (e.g., 32 bytes).
+\item Two "pointers" (which are just index variables):
+\begin{itemize}
+\item \texttt{head}: Where the ISR \textit{writes the next byte to}.
+\item \texttt{tail}: Where the \texttt{main} loop \textit{reads the next byte from}.
+	\end{itemize}
+	\item When \texttt{head} or \texttt{tail} reach the end of the array, they "wrap around" back to 0.
+	\end{itemize}
+		
+		
+		
+		\textbf{States:}
+		\begin{itemize}
+	\item Buffer Empty: \texttt{head == tail}
+	\item Buffer Full: \texttt{head} is "just behind" \texttt{tail}
+	\end{itemize}
+	\end{frame}
+	
+	% --- FRAME 4: Das HÄUFIGSTE Problem mit Ringbuffern (Race Condition) ---
+		% (Diese Folie war zu voll, 'Overfull \vbox', ich habe sie geteilt)
+		\begin{frame}{Architecture: Ring Buffer (The Critical Risk)}
+		\textbf{WARNING: Race Condition}
+		\begin{itemize}
+		\item \texttt{head} is modified by the \textbf{ISR context}.
+	\item \texttt{tail} is modified by the \textbf{main context}.
+\end{itemize}
+
+\medskip
+\textbf{The Problem:}
+\begin{itemize}
+\item The compiler does not know these are modified by two different contexts and will "optimize" access.
+\item It might cache the value in a CPU register, assuming it won't change "randomly". The \texttt{main} loop might never see the change the ISR made.
+\end{itemize}
+\end{frame}
+
+% --- FRAME 4.5: Die LÖSUNG für die Race Condition ---
+\begin{frame}[fragile]{Architecture: Ring Buffer (The Solution)}
+\textbf{The Solution (Mandatory):}
+\begin{itemize}
+\item The index variables \textbf{must} be declared as \textbf{\texttt{volatile}}.
+\item \texttt{volatile uint32\_t head;}
+\item \texttt{volatile uint32\_t tail;}
+\item This forces the compiler to re-read the variable from RAM *every single time* it is accessed, even if it looks "inefficient".
+\item It prevents the "stale register" optimization bug.
+\end{itemize}
+\end{frame}
+
+% --- FRAME 5: Implementierung 1 (Peripherie) ---
+\begin{frame}[fragile]{Step 1: Enable the UART Interrupt (The "Bell")}
+\textbf{Goal:} Stop actively waiting for \texttt{RXNE} (Polling).
+
+\medskip
+\textbf{Solution:} Tell the UART to trigger an interrupt as soon as the \texttt{RXNE} flag (Receive Register Not Empty) is set.
+
+\bigskip
+\textbf{How? In the \texttt{UART1\_Init()} function.}
+\begin{itemize}
+\item A bit must be set in \texttt{USART1->CR1} (Control Register 1).
+\item The bit is called: \textbf{\texttt{RXNEIE}} (RXNE Interrupt Enable)
+\end{itemize}
+
+\bigskip
+\textbf{The Code (Addition to \texttt{UART1\_Init()}):}
+\begin{lstlisting}[language=C, style=mystyle]
+// At the end of UART1_Init(), after enabling UE, TE, RE:
+// Enable the "Receive Register Not Empty" Interrupt
+USART1->CR1 |= USART_CR1_RXNEIE;
+\end{lstlisting}
+\end{frame}
+% --- FRAME 6: Implementierung 2 (Cortex-M Kern) ---
+\begin{frame}[fragile]{Step 2: Inform the "Boss" (The NVIC)}
+	\textbf{Problem:} Just because the UART "rings the bell" (\texttt{RXNEIE}) doesn't mean the CPU (the "boss") is listening.
+	
+	\medskip
+	\textbf{Solution: The NVIC (Nested Vectored Interrupt Controller)}
+	\begin{itemize}
+		\item The NVIC is the interrupt manager inside the Cortex-M Core.
+		\item It manages *all* interrupt sources (Timers, UARTs, GPIOs...).
+		\item We must tell the NVIC: "Hey, the bell from \texttt{USART1} is important. Turn it on."
+	\end{itemize}
+	
+	\bigskip
+	\textbf{The Code (At the start of \texttt{main()})}
+	\begin{lstlisting}[language=C, style=mystyle]
+		// We must tell the NVIC to globally enable
+		// the USART1 interrupt.
+		// (This is a CMSIS-Core function)
+		NVIC_EnableIRQ(USART1_IRQn);
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 7: Implementierung 3 (Die ISR - Logik) ---
+\begin{frame}{Step 3: The "Mailman" (The ISR)}
+	\textbf{Goal:} The Interrupt Service Routine (ISR) must be *lightning fast*.
+	
+	\textbf{What happens (The Chain):}
+	\begin{enumerate}
+		\item A byte arrives.
+		\item \texttt{RXNE} flag is set by hardware.
+		\item \texttt{RXNEIE} bit is active $\rightarrow$ UART sends signal to NVIC.
+		\item \texttt{USART1\_IRQn} is enabled in NVIC $\rightarrow$ CPU stops \texttt{main()}, jumps to ISR.
+	\end{enumerate}
+	
+	\textbf{The Implementation (in \texttt{stm32f1xx\_it.c})}
+\end{frame}
+
+% --- FRAME 8: Implementierung 3 (Die ROBUSTE ISR - Code) ---
+\begin{frame}{Step 3: The "Mailman" (The ROBUST ISR)}
+	\textbf{Problem:} The ISR can be triggered by errors (like Overrun).
+	If an error flag is not cleared, the UART will lock up.
+	
+	\textbf{Solution:} Check for (and clear) errors FIRST.
+\end{frame}
+\begin{frame}[fragile]{Step 3: The "Mailman" (The ROBUST ISR)}
+	\begin{lstlisting}[language=C, style=mystyle]
+void USART1_IRQHandler(void){
+	// --- 1. Error Handling (Overrun, Noise, etc.) ---
+	if (USART1->SR & (USART_SR_ORE | USART_SR_NE | USART_SR_FE))
+		{
+			// Reading SR (above) and then DR (below)
+			(void)(USART1->DR & 0xFF); 
+		}
+	// --- 2. "Happy Path" (Data Reception) ---
+	if ( (USART1->SR & USART_SR_RXNE) && 	(USART1->CR1 & USART_CR1_RXNEIE) )
+		{
+			// Reading DR clears the RXNE flag
+			uint8_t byte = (uint8_t)(USART1->DR & 0xFF);	
+			RingBuffer_Write(&g_rxBuffer, byte);
+		}
+}
+\end{lstlisting}
+\end{frame}
+
+\section{Architecture (Memory)}
+
+\begin{frame}{Excursus: Flash vs. RAM (The "Endurance" Question)}
+	\textbf{Your Question:} "Doesn't the ring buffer kill my Flash endurance?"
+	
+	\medskip
+	\textbf{Answer: No! It doesn't affect Flash at all.}
+	
+	\medskip
+	\begin{columns}
+		\column{0.5\textwidth}
+		\textbf{Flash (Program Memory)}
+		\begin{itemize}
+			\item \textbf{Usage:} Code (\texttt{.bin}), constants
+			\item \textbf{Property:} Non-Volatile
+			\item \textbf{Limitation:} Limited write cycles
+			\item \textit{Only used during flashing}
+		\end{itemize}
+		
+		\column{0.5\textwidth}
+		\textbf{SRAM (Working Memory)}
+		\begin{itemize}
+			\item \textbf{Usage:} Variables, buffer arrays
+			\item \textbf{Property:} Volatile
+			\item \textbf{Advantage:} Unlimited write cycles
+			\item \textit{Used continuously}
+		\end{itemize}
+	\end{columns}
+	
+	\bigskip
+	\textbf{Conclusion: Ring buffer resides entirely in SRAM. RAM writes are "free" and cause no wear.}
 \end{frame}
 \end{document}
