@@ -1,0 +1,692 @@
+% Showcase Präsentation mit SimSchoolDark Theme
+\documentclass{beamer}
+
+% Theme laden
+\usetheme{SimSchoolDark}
+
+% Für Python Code Highlighting
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabu}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.45,0.45,0.45}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},
+	commentstyle=\color{codegreen}\itshape,
+	keywordstyle=\color{magenta}\bfseries,
+	stringstyle=\color{codepurple},
+	numberstyle=\tiny\color{codegray},
+	basicstyle=\ttfamily\small,  % kompakter als footnotesize, aber noch gut lesbar
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=none,                % ich empfehle in Beamer lieber keine Zeilennummern
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=4,                   % einheitlich 4 Spaces für Tabs
+	frame=single,                % optional: Rahmen um den Code
+	rulecolor=\color{gray!50},   % dezente Rahmenfarbe
+	aboveskip=5pt,
+	belowskip=5pt,
+	xleftmargin=4pt, xrightmargin=4pt,
+	columns=fullflexible         % sorgt für gleichmäßige Zeichenabstände
+}
+
+\lstset{style=mystyle}
+
+% Python Code Style
+%\lstset{
+%	language=Python,
+%	basicstyle=\ttfamily\small,
+%	keywordstyle=\color{simschooldarkest}\bfseries,
+%	stringstyle=\color{simschoolmedium},
+%	commentstyle=\color{simschoollight}\itshape,
+%	numberstyle=\tiny\color{simschoollight},
+%	numbers=left,
+%	breaklines=true,
+%	frame=single,
+%	rulecolor=\color{simschoolmedium},
+%	backgroundcolor=\color{simschoolbg!50},
+%	showstringspaces=false,
+%	tabsize=4
+%}
+
+% Präsentationsinfos
+\title{ARM-Embedded-Path}
+\subtitle{Multiple LEDs}
+\author{Pavel Pys}
+\date{\today}
+%\institute{}
+\begin{document}
+\begin{frame}{}
+	\maketitle
+\end{frame}
+\section{LED - Init}
+% --- FRAME 1: Goal & Agenda ---
+\begin{frame}
+	\frametitle{Analysis: The \texttt{LED\_Init()} Function}
+	\textbf{Goal:} Configure 4 different LEDs (PC13, PA0, PA12, PB9) as
+	digital outputs (Push-Pull, 2MHz) for CMSIS code.
+	
+	\bigskip
+	\textbf{Our Function (The "Patient"):}
+	\begin{itemize}
+		\item \texttt{void LED\_Init(void)}
+	\end{itemize}
+	
+	\bigskip
+	\textbf{The 3 Initialization Steps:}
+	\begin{itemize}
+		\item \textbf{Step 1:} Enable clock (RCC)
+		\item \textbf{Step 2:} Understand GPIO registers (CRL vs. CRH)
+		\item \textbf{Step 3:} Configure pins robustly (Read-Modify-Write)
+	\end{itemize}
+\end{frame}
+
+
+% --- FRAME 2: Step 1 - Clock ---
+\begin{frame}[fragile]
+	\frametitle{Step 1: Enable Clock (RCC)}
+	\textbf{Problem:} Every peripheral (GPIO, UART, ...) is "off" after reset 
+	to save power. It has no clock.
+	
+	\medskip
+	\textbf{Solution:} We must explicitly enable the clock for GPIO ports A, B and C
+	in the \textbf{RCC} (Reset and Clock Control) module.
+	
+	\bigskip
+	\textbf{Where? (STM32F1):}
+	\begin{itemize}
+		\item The "fast" GPIO ports are on the \textbf{APB2} bus.
+		\item The register is: \texttt{RCC->APB2ENR} (APB2 Enable Register)
+	\end{itemize}
+	\textbf{The Code:}
+	\begin{lstlisting}[language=C, style=mystyle,basicstyle=\scriptsize]
+		void LED_Init(void) {
+			// 1. Clock (All 3 ports in one operation)
+			RCC->APB2ENR |= (RCC_APB2ENR_IOPAEN | // Port A
+			RCC_APB2ENR_IOPBEN | // Port B
+			RCC_APB2ENR_IOPCEN);  // Port C
+			...
+		}
+	\end{lstlisting}
+\end{frame}
+
+
+% --- FRAME 3: Step 2 - GPIO Registers (CRL/CRH) ---
+\begin{frame}
+	\frametitle{Step 2: GPIO Registers (CRL \& CRH)}
+	\textbf{The "STM32F1 Problem":} There's no simple "Direction" register.
+	\medskip
+	\begin{itemize}
+		\item Per port (e.g., \texttt{GPIOA}) there are two 32-bit configuration registers.
+		\item \textbf{\texttt{CRL}} (Config Register \textbf{Low}): Controls pins \textbf{0 to 7}
+		\item \textbf{\texttt{CRH}} (Config Register \textbf{High}): Controls pins \textbf{8 to 15}
+	\end{itemize}
+	
+	\bigskip
+	\textbf{Each pin uses 4 bits:}
+	\begin{itemize}
+		\item \textbf{\texttt{MODE[1:0]}}: (Mode) Input, Output 10MHz, 2MHz, 50MHz
+		\item \textbf{\texttt{CNF[1:0]}}: (Config) Push-Pull, Open-Drain, Pull-up, ...
+	\end{itemize}
+	
+	\bigskip
+	\textbf{Our Targets (Output, 2MHz, Push-Pull):}
+	\begin{itemize}
+		\item \texttt{MODE} = \texttt{0b10} (Output 2MHz) -> \texttt{GPIO\_CRx\_MODEx\_1}
+		\item \texttt{CNF} = \texttt{0b00} (Push-Pull) -> (Standard, 0)
+	\end{itemize}
+\end{frame}
+\begin{frame}
+	\frametitle{Step 2: Assigning Our 4 Pins}
+	Due to the CRL/CRH division, our 4 pins end up in 4 different register positions:
+	
+	\bigskip
+	\begin{columns}
+		\column{0.5\textwidth}
+		\begin{itemize}
+			\item \textbf{PA0} (Pin 0):
+			\begin{itemize}
+				\item Port A -> \texttt{GPIOA}
+				\item Pin 0-7 -> \texttt{CRL}
+				\item \textbf{Target: \texttt{GPIOA->CRL}} (Bits 0-3)
+			\end{itemize}
+			\medskip
+			\item \textbf{PB9} (Pin 9):
+			\begin{itemize}
+				\item Port B -> \texttt{GPIOB}
+				\item Pin 8-15 -> \texttt{CRH}
+				\item \textbf{Target: \texttt{GPIOB->CRH}} (Bits 4-7)
+			\end{itemize}
+		\end{itemize}
+		
+		\column{0.5\textwidth}
+		\begin{itemize}
+			\item \textbf{PA12} (Pin 12):
+			\begin{itemize}
+				\item Port A -> \texttt{GPIOA}
+				\item Pin 8-15 -> \texttt{CRH}
+				\item \textbf{Target: \texttt{GPIOA->CRH}} (Bits 16-19)
+			\end{itemize}
+			\medskip
+			\item \textbf{PC13} (Pin 13):
+			\begin{itemize}
+				\item Port C -> \texttt{GPIOC}
+				\item Pin 8-15 -> \texttt{CRH}
+				\item \textbf{Target: \texttt{GPIOC->CRH}} (Bits 20-23)
+			\end{itemize}
+		\end{itemize}
+	\end{columns}
+\end{frame}
+
+
+% --- FRAME 5: Schritt 3 - Die RMW-Operation ---
+\begin{frame}
+	\frametitle{Step 3: Robust Configuration (RMW)}
+	\textbf{Problem:} We need to change 4 bits (e.g., for PA12),
+	\textit{without} destroying the other 28 bits (e.g., for PA8, PA9, ...) in the same 
+	\texttt{CRH} register.
+	
+	\medskip
+	\textbf{Solution: Read-Modify-Write (RMW)}
+	\begin{itemize}
+		\item \textbf{1. Read:} Read the current 32-bit value of the register.
+		\item \textbf{2. Modify:} Clear (\texttt{\&= \~MASK}) only our 4 bits
+		and set (\texttt{|= VALUE}) them anew.
+		\item \textbf{3. Write:} Write the modified value back.
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Step 3: Robust Configuration (RMW) - Code Example}
+	\textbf{The "One-Liner" Pattern (Example PA12):}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+		// Register = (Register AND (NOT MASK)) OR VALUE;
+		// 1. MASK: The bits we want to clear (CNF12 and MODE12)
+		// (GPIO_CRH_CNF12 | GPIO_CRH_MODE12)
+		// 2. VALUE: The new value (Output 2MHz)
+		// (GPIO_CRH_MODE12_1)
+		GPIOA->CRH = (GPIOA->CRH & ~(GPIO_CRH_CNF12 | GPIO_CRH_MODE12))
+		| (GPIO_CRH_MODE12_1);
+	\end{lstlisting}
+\end{frame}
+
+
+% --- FRAME 6: Der finale Code ---
+\begin{frame}[fragile]
+	\frametitle{Complete \texttt{LED\_Init} Code (Part 1/2)}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+		void LED_Init(void) {
+			// 1. Enable clock for all 3 ports
+			RCC->APB2ENR |= (RCC_APB2ENR_IOPAEN |
+			RCC_APB2ENR_IOPBEN |
+			RCC_APB2ENR_IOPCEN);
+			
+			// 2. PC13 (in CRH) as Output 2MHz (MODE=10, CNF=00)
+			// RMW operation for Pin 13
+			GPIOC->CRH = (GPIOC->CRH & ~(GPIO_CRH_MODE13 | GPIO_CRH_CNF13))
+			| (GPIO_CRH_MODE13_1);
+			
+			// 3. PA0 (in CRL) as Output 2MHz (MODE=10, CNF=00)
+			// RMW operation for Pin 0
+			GPIOA->CRL = (GPIOA->CRL & ~(GPIO_CRL_MODE0 | GPIO_CRL_CNF0))
+			| (GPIO_CRL_MODE0_1);
+		\end{lstlisting}
+	\end{frame}
+	
+	\begin{frame}[fragile]
+		\frametitle{Complete \texttt{LED\_Init} Code (Part 2/2)}
+		\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+			// 4. PA12 (in CRH) as Output 2MHz (MODE=10, CNF=00)
+			// RMW operation for Pin 12
+			GPIOA->CRH = (GPIOA->CRH & ~(GPIO_CRH_MODE12 | GPIO_CRH_CNF12))
+			| (GPIO_CRH_MODE12_1);
+			
+			// 5. PB9 (in CRH) as Output 2MHz (MODE=10, CNF=00)
+			// RMW operation for Pin 9
+			GPIOB->CRH = (GPIOB->CRH & ~(GPIO_CRH_MODE9 | GPIO_CRH_CNF9))
+			| (GPIO_CRH_MODE9_1);
+		}
+	\end{lstlisting}
+\end{frame}
+\section{LED - API}
+% --- FRAME 1: Title & Goal ---
+\begin{frame}
+	\frametitle{Analysis: The LED-API (\texttt{LED\_On} / \texttt{LED\_Off})}
+	\textbf{Goal:} Understand how our abstraction functions
+	control the hardware (GPIO pins).
+	
+	\bigskip
+	\textbf{The 2 Core Concepts:}
+	\begin{itemize}
+		\item \textbf{The \texttt{BSRR} Register:} Why is it better than \texttt{ODR}?
+		\item \textbf{Active-Low vs. Active-High:} Why is LED 0 (PC13) "inverted"?
+	\end{itemize}
+	
+	\bigskip
+	\textbf{Our 4 LEDs:}
+	\begin{itemize}
+		\item \texttt{LED 0} $\rightarrow$ \texttt{PC13} (On-Board LED)
+		\item \texttt{LED 1} $\rightarrow$ \texttt{PA0} (External)
+		\item \texttt{LED 2} $\rightarrow$ \texttt{PA12} (External)
+		\item \texttt{LED 3} $\rightarrow$ \texttt{PB9} (External)
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 2: BSRR Register Introduction ---
+\begin{frame}[fragile]
+	\frametitle{The Tool: GPIO Bit Set/Reset Register (\texttt{BSRR})}
+	\textbf{Problem:} What happens if an interrupt (e.g., SysTick)
+	modifies the \texttt{ODR} register \textit{exactly when} \texttt{main}
+	is also changing it? (Race Condition!)
+	
+	\medskip
+	\textbf{Solution: The \texttt{BSRR} Register}
+	\begin{itemize}
+		\item \texttt{BSRR} is \textbf{atomic}. Each assignment is uninterruptible.
+		\item It's a "Write-Only" 32-bit register.
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 3: BSRR Functionality ---
+\begin{frame}[fragile]
+	\frametitle{How \texttt{BSRR} Works}
+	\textbf{Functionality:}
+	\begin{itemize}
+		\item \textbf{Bits 0-15 (Set):} Write 1 to \texttt{BS0} $\rightarrow$ \texttt{ODR0} becomes 1 (HIGH).
+		\item \textbf{Bits 16-31 (Reset):} Write 1 to \texttt{BR0} $\rightarrow$ \texttt{ODR0} becomes 0 (LOW).
+	\end{itemize}
+	
+	\bigskip
+	\textbf{CMSIS Macros:}
+	\begin{lstlisting}[language=C, style=mystyle]
+		// Set pin 0 to HIGH (write to bit 0)
+		GPIOA->BSRR = GPIO_BSRR_BS0;
+		
+		// Set pin 0 to LOW (write to bit 16)
+		GPIOA->BSRR = GPIO_BSRR_BR0;
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 4: LED_On Analysis ---
+\begin{frame}[fragile]
+	\frametitle{Code Analysis: \texttt{void LED\_On(number)}}
+	Our function "translates" logical numbers into hardware commands.
+	
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+		void LED_On(uint8_t LEDNumber){
+			if (LEDNumber == 0) {
+				GPIOC->BSRR = GPIO_BSRR_BR13; // Set PC13 LOW
+			}
+			if (LEDNumber == 1) {
+				GPIOA->BSRR = GPIO_BSRR_BS0;  // Set PA0 HIGH
+			}
+			if (LEDNumber == 2) {
+				GPIOA->BSRR = GPIO_BSRR_BS12; // Set PA12 HIGH
+			}
+			if (LEDNumber == 3) {
+				GPIOB->BSRR = GPIO_BSRR_BS9;  // Set PB9 HIGH
+			}
+		}
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 5: Active-High vs Active-Low ---
+\begin{frame}
+	\frametitle{The Secret: Active-High vs. Active-Low}
+	\textbf{Question:} Why does \texttt{LED\_On(0)} set the pin to \textbf{LOW} (\texttt{BR13})?
+	
+	\medskip
+	\textbf{Answer: The hardware wiring!}
+	\begin{itemize}
+		\item \textbf{Active-High (LED 1, 2, 3):}
+		\begin{itemize}
+			\item Circuit: \texttt{PIN -> Resistor -> LED -> GND}
+			\item For current to flow (LED on), pin must be \textbf{HIGH} (3.3V).
+			\item \texttt{LED\_On} $\rightarrow$ \texttt{BSRR = BSx} (Set)
+		\end{itemize}
+		\medskip
+		\item \textbf{Active-Low (LED 0 / PC13):}
+		\begin{itemize}
+			\item Circuit: \texttt{3.3V -> Resistor -> LED -> PIN}
+			\item For current to flow (LED on), pin must be \textbf{LOW} (GND).
+			\item \texttt{LED\_On} $\rightarrow$ \texttt{BSRR = BRx} (Reset)
+		\end{itemize}
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 6: LED_Off Analysis ---
+\begin{frame}[fragile]
+	\frametitle{Code Analysis: \texttt{void LED\_Off(number)}}
+	The \texttt{LED\_Off} function logically does the exact opposite.
+	
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+		void LED_Off(uint8_t LEDNumber){
+			if (LEDNumber == 0) {
+				GPIOC->BSRR = GPIO_BSRR_BS13; // Set PC13 HIGH (LED off)
+			}
+			if (LEDNumber == 1) {
+				GPIOA->BSRR = GPIO_BSRR_BR0;  // Set PA0 LOW (LED off)
+			}
+			if (LEDNumber == 2) {
+				GPIOA->BSRR = GPIO_BSRR_BR12; // Set PA12 LOW (LED off)
+			}
+			if (LEDNumber == 3) {
+				GPIOB->BSRR = GPIO_BSRR_BR9;  // Set PB9 LOW (LED off)
+			}
+		}
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 7: Summary ---
+\begin{frame}
+	\frametitle{Summary \& Best Practices}
+	\begin{itemize}
+		\item \textbf{Atomicity:} Always use \texttt{BSRR} instead of \texttt{ODR}
+		to avoid race conditions between \texttt{main} and ISRs.
+		\medskip
+		\item \textbf{Abstraction:} A "driver" (your API) is good
+		because it hides hardware details (ports, pins, active-low/high)
+		from the main program.
+		\medskip
+		\item \textbf{Readability:} \texttt{LED\_On(1)} is much clearer than
+		\texttt{GPIOA->BSRR = GPIO\_BSRR\_BS0;}
+		\medskip
+		\item \textbf{Code Style (Optional):}
+		\begin{itemize}
+			\item A \texttt{switch-case} statement would be (slightly)
+			more efficient and more readable than four separate \texttt{if} statements.
+		\end{itemize}
+	\end{itemize}
+\end{frame}
+% --- FRAME 1: Title ---
+\begin{frame}
+	\frametitle{The Great Debug Hunt: A Case Study}
+	\textbf{Why our 4-LED blinker kept crashing}
+	\medskip
+	\begin{itemize}
+		\item \textbf{Goal:} A simple blinker with 4 LEDs and \texttt{Delay\_ms(1000)}.
+		\item \textbf{Problem:} Program crashed, but only sometimes.
+		\item \textbf{Insight:} It's (almost) always the hardware.
+	\end{itemize}
+	\bigskip
+	\textbf{Patient:} STM32F103 "Blue Pill" (CMSIS, Bare-Metal)
+	\bigskip
+	\textbf{Symptoms:}
+	\begin{itemize}
+		\item Debugger always opens \texttt{startup\_...s} file.
+		\item Blinking is "weird", "shortened" or "asynchronous".
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 2: The Mystery (The Clues) ---
+\begin{frame}
+	\frametitle{The Mystery: Clues \& Contradictions}
+	We faced a series of clues that contradicted each other.
+	
+	\medskip
+	\textbf{Clue 1: The Time Factor (Main Symptom)}
+	\begin{itemize}
+		\item \texttt{LED\_Mode(MODE\_BLINKYALL, 100);} $\rightarrow$ \textbf{Works!}
+		\item \texttt{LED\_Mode(MODE\_BLINKYALL, 500);} $\rightarrow$ \textbf{CRASH!} (Reset)
+	\end{itemize}
+	
+	\medskip
+	\textbf{Clue 2: The "Heisenberg" Effect (Debugger "lies")}
+	\begin{itemize}
+		\item \textbf{Without debugger:} Program crashes (reset loop).
+		\item \textbf{With debugger:} Program (e.g., temp sensor) suddenly ran error-free!
+	\end{itemize}
+	
+	\medskip
+	\textbf{Clue 3: Power Source Swap}
+	\begin{itemize}
+		\item Power via \textbf{ST-Link (3.3V pin)} $\rightarrow$ \textbf{CRASH!}
+		\item Power via \textbf{PC USB port (5V pin)} $\rightarrow$ \textbf{Works!}
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 3: Suspect 1: Stack Overflow ---
+\begin{frame}
+	\frametitle{Suspect 1: Stack Overflow}
+	\textbf{Theory:} The 1ms \texttt{SysTick\_Handler} (1000x per second)
+	bombards the small default stack.
+	\begin{itemize}
+		\item Each interrupt "saves" 8 registers (~32 bytes) to stack.
+		\item When \texttt{main()} $\rightarrow$ \texttt{LED\_Mode()} $\rightarrow$ \texttt{Delay\_ms()} runs,
+		stack is already deep.
+		\item SysTick interrupt causes overflow $\rightarrow$ \texttt{HardFault}.
+	\end{itemize}
+	
+	\bigskip
+	\textbf{Status: DEBUNKED!}
+	\begin{itemize}
+		\item Problem occurred with \textbf{temp sensor project} too, which
+		used a "dumb" \texttt{for} loop and \textbf{no SysTick}.
+		\item So not a software error from interrupts.
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 4: Suspect 2: Watchdog (IWDG) ---
+\begin{frame}
+	\frametitle{Suspect 2: The Watchdog (IWDG)}
+	\textbf{Theory:} The symptom (\texttt{Delay(100)} works, \texttt{Delay(500)} crashes)
+	is watchdog 101.
+	\begin{itemize}
+		\item A \textbf{hardware-activated} IWDG (via option bytes) always runs.
+		\item Its timeout is $> 100$ms but $< 500$ms (e.g., 250ms).
+		\item \texttt{Delay\_ms(500)} blocks code $\rightarrow$ watchdog not "fed"
+		$\rightarrow$ it "bites" $\rightarrow$ hardware reset!
+	\end{itemize}
+	\bigskip
+	\textbf{Status: DEBUNKED!} (Despite perfect symptoms)
+	\begin{itemize}
+		\item "Wiping" (resetting option bytes) should have disabled IWDG.
+		But error remained (when powered via ST-Link).
+		\item Adding \texttt{IWDG->KR = 0xAAAA;} should have fed it.
+		Error remained too.
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 5: Resolution: Brown-Out-Reset (BOR) ---
+\begin{frame}
+	\frametitle{Resolution: Brown-Out-Reset (BOR)}
+	\textbf{The real culprit: Power supply!}
+	\medskip
+	The combination of "Clue 2" and "Clue 3" was key:
+	\begin{enumerate}
+		\item Every \texttt{Delay\_ms()} loop (whether \texttt{for} or \texttt{SysTick})
+		forces CPU to \textbf{100\% load}.
+		\item 100\% CPU load $\rightarrow$ maximum power consumption.
+		\item \textbf{ST-Link} (especially clones) provides very
+		\textbf{little stable current} via 3.3V pin (e.g., < 50mA).
+		\item This continuous load (even if small) slowly dropped
+		voltage (\texttt{VDD}) over time.
+		\item \texttt{Delay(100)} was short enough for \texttt{VDD} to stay stable.
+		\item \texttt{Delay(500)} was long enough for \texttt{VDD} to fall
+		below threshold (e.g., 2.7V).
+		\item \textbf{Brown-Out-Reset (BOR)} protection detected undervoltage
+		$\rightarrow$ \textbf{Hardware reset!}
+	\end{enumerate}
+\end{frame}
+
+% --- FRAME 6: Final Proof ---
+\begin{frame}
+	\frametitle{Final Proof (The 2 Power Paths)}
+	\textbf{Why did the debugger "lie"?}
+	\begin{itemize}
+		\item In \textbf{debug mode} (live data), ST-Link stabilizes
+		voltage (or CPU enters low-power debug state).
+		\textbf{BOR is prevented}.
+	\end{itemize}
+	\bigskip
+	\textbf{Why did switching to USB cable solve everything?}
+	\begin{itemize}
+		\item ST-Link (3.3V) \textit{bypasses} the voltage regulator.
+		\item PC USB port (5V) goes \textit{through} the 3.3V regulator
+		on Blue Pill board.
+		\item This regulator is strong enough to power CPU at 100\% load.
+	\end{itemize}
+	\medskip
+	\textbf{Remember: ST-Link 3.3V pin is for flashing only,
+		not for operation under load!}
+\end{frame}
+
+% --- FRAME 7: Lessons Learned ---
+\begin{frame}
+	\frametitle{What We Learned (The 3 Rules)}
+	\textbf{Rule 1: It's (almost) always the power supply.}
+	\begin{itemize}
+		\item An "unexplainable" reset loop is 90\% watchdog
+		or brown-out reset (BOR).
+		\item Before doubting code for 4 hours, check power supply
+		(GND, VCC, ST-Link vs. USB) for 1 minute.
+	\end{itemize}
+	\bigskip
+	\textbf{Rule 2: The debugger isn't an innocent observer.}
+	\begin{itemize}
+		\item A debugger \textbf{changes} the system (timing, power, watchdogs).
+		\item If a bug "disappears" when debugger runs,
+		it's almost certainly watchdog or power issue.
+	\end{itemize}
+	\bigskip
+	\textbf{Rule 3: Blocking delays are "evil".}
+	\begin{itemize}
+		\item Our \texttt{for} loop \texttt{Delay\_ms()} is a "heater".
+		It maximizes power consumption by keeping CPU at 100\%.
+		\item (A \texttt{SysTick} delay with \texttt{\_\_WFI()} [Wait-For-Interrupt]
+		would put CPU to sleep and use almost no power.)
+	\end{itemize}
+\end{frame}
+% --- FRAME 1: Title & Motivation ---
+\begin{frame}
+	\frametitle{The Mode Concept (State Machines)}
+	\textbf{Goal:} Clean up our main program (\texttt{main})
+	and cleanly control complex sequences (like blinking, alarms).
+	
+	\bigskip
+	\textbf{The Problem (Without Modes):}
+	\begin{itemize}
+		\item The \texttt{while(1)} loop quickly becomes huge and unreadable.
+		\item \texttt{if (button1\_pressed) \{ ... \}}
+		\item \texttt{if (timer > 500) \{ ... \}}
+		\item \texttt{if (uart\_data == 'A') \{ ... \}}
+		\item Manual \texttt{if/else} logic becomes error-prone ("spaghetti code").
+	\end{itemize}
+	
+	\bigskip
+	\textbf{The Solution: A "State Machine"}
+	\begin{itemize}
+		\item We define clear "states" (modes) the system can be in.
+		\item (e.g., \texttt{MODE\_BLINKYALL}, \texttt{MODE\_ALARM\_FAST})
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 2: Step 1 - Define States (enum) ---
+\begin{frame}[fragile]
+	\frametitle{Step 1: Define Modes with \texttt{enum}}
+	We use \texttt{typedef enum} (enumeration) to give our modes
+	meaningful names instead of "magic numbers" (0, 1, 2).
+	
+	\medskip
+	\textbf{Why \texttt{enum}?}
+	\begin{itemize}
+		\item \textbf{Readable:} \texttt{MODE\_BLINKYALL} is clearer than \texttt{1}.
+		\item \textbf{Safe:} Compiler warns us if we forget a mode.
+		\item \textbf{Maintainable:} Easy to add new modes (e.g., \texttt{MODE\_SOS}).
+	\end{itemize}
+	
+	\bigskip
+	\textbf{The Code (Global, e.g., in \texttt{main.c}):}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+/* Definition of our states (modes).
+* The type "LED_Mode_t" can now be used like "int".
+*/
+typedef enum {
+	MODE_BLINKYALL,  // Internal value = 0
+	MODE_ALARM_FAST  // Internal value = 1
+} LED_Mode_t;
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 3: Step 2 - The "Mode Manager" (Our API) ---
+% --- FRAME 3: Step 2 - The "Mode Manager" (Our API) ---
+\begin{frame}[fragile]
+	\frametitle{Step 2: The Mode Function (\texttt{LED\_Mode})}
+	\textbf{Central function deciding "What happens in which mode?"}
+	
+	\medskip
+	\begin{itemize}
+		\item Takes desired mode (\texttt{LED\_Mode\_t}) as parameter
+		\item Encapsulates all logic for that mode
+		\item \texttt{switch} statement acts as perfect "switch operator"
+	\end{itemize}
+	
+	\medskip
+	\textbf{API Function:}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\footnotesize]
+		void LED_Mode(LED_Mode_t mode, uint32_t delay) {
+			switch (mode) {
+				case MODE_BLINKYALL:
+				// Logic for BlinkyAll
+				break;
+				case MODE_ALARM_FAST:
+				// Logic for AlarmFast
+				break;
+			}
+		}
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 4: Step 3 - The "Clean" main() ---
+\begin{frame}[fragile]
+	\frametitle{Step 3: The Clean \texttt{main}}
+	\textbf{Tiny, readable \texttt{while(1)} loop - complexity hidden in \texttt{LED\_Mode}}
+	
+	\medskip
+	\textbf{Final \texttt{main}:}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\footnotesize]
+		int main(void){
+			// 1. Initializations
+			SysTick_Config(SystemCoreClock / 1000);
+			LED_Init();
+			LED_Off(0); LED_Off(1); 
+			LED_Off(2); LED_Off(3);
+			
+			// 2. Main loop
+			while (1){
+				LED_Mode(MODE_BLINKYALL, 1000);
+			}
+		}
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 5: Summary ---
+\begin{frame}
+	\frametitle{Summary: Why This Approach?}
+	\textbf{Advantages of the Mode Concept (State Machine)}
+	
+	\begin{itemize}
+		\item \textbf{Readability:} \texttt{main} describes "what", not "how".
+		\item \textbf{Maintainability:}
+		\begin{itemize}
+			\item New mode? $\rightarrow$ Simply add a new \texttt{case}.
+			\item Bug in "Alarm"? $\rightarrow$ Only check \texttt{case MODE\_ALARM\_FAST}.
+		\end{itemize}
+		\item \textbf{Error Safety:} \texttt{break;} enforces clean separation.
+		(Our "fall-through" bug was the best lesson for that!)
+		\item \textbf{Extensibility:} This is the foundation for any complex
+		firmware (e.g., USB devices, menu navigation, ...).
+	\end{itemize}
+\end{frame}
+\end{document}
