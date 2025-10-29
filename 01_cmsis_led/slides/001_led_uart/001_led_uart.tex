@@ -75,117 +75,118 @@
 \end{frame}
 % --- KOMPLETTER FOLIENSATZ TEIL 2 (v2.0) ---
 
-\section{Einleitung \& Motivation}
+\section{Introduction \& Motivation}
 
-\begin{frame}{CMSIS Schulung: UART \& Timing}
+\begin{frame}{CMSIS Training: UART \& Timing}
 	\begin{center}
-		\Large\textbf{Aufgabe: Der "Morse-Bot"}
+		\Large\textbf{Task: The "Morse-Bot"}
 		\medskip
 		
-		\normalsize Von der UART-Eingabe zum getimeten LED-Signal
+		\normalsize From UART Input to a Timed LED Signal
 	\end{center}
 \end{frame}
-\begin{frame}{Recap: Was war CMSIS?}
+
+\begin{frame}{Recap: What is CMSIS?}
 	\begin{itemize}
-		\item \textbf{Problem:} Jeder ARM-Chip hat andere Adressen für Peripherien (GPIO, Timer...).
-		\item \textbf{CMSIS-Core (Cortex-M):} Einheitlicher Zugriff auf Kern-Funktionen (z.B. Interrupts, \texttt{SysTick}).
-		\item \textbf{CMSIS-Device (STM32F103):} Stellt Header-Dateien (\texttt{stm32f103x6.h}) bereit.
+		\item \textbf{Problem:} Every ARM chip has different addresses for peripherals (GPIO, Timer...).
+		\item \textbf{CMSIS-Core (Cortex-M):} Uniform access to core functions (e.g., Interrupts, \texttt{SysTick}).
+		\item \textbf{CMSIS-Device (STM32F103):} Provides header files (\texttt{stm32f103x6.h}).
 	\end{itemize}
 	
 	\medskip
-	\textbf{Was wir gelernt haben (Blinky):}
+	\textbf{What was learned (Blinky):}
 	\begin{enumerate}
-		\item Takt für Peripherie (Port C) aktivieren: \texttt{RCC->APB2ENR}
-		\item GPIO-Pin (PC13) konfigurieren: \texttt{GPIOC->CRH}
-		\item Pin schalten: \texttt{GPIOC->ODR} (oder \texttt{BSRR})
+		\item Enable clock for peripheral (Port C): \texttt{RCC->APB2ENR}
+		\item Configure GPIO pin (PC13): \texttt{GPIOC->CRH}
+		\item Toggle pin: \texttt{GPIOC->ODR} (or \texttt{BSRR})
 	\end{enumerate}
 \end{frame}
 
-\begin{frame}{Motivation: Der 1kB "Blinky"}
-	\textbf{Die Beobachtung (Vergleich):}
+\begin{frame}{Motivation: The 1kB "Blinky"}
+	\textbf{The Observation (Comparison):}
 	
 	\medskip
 	\begin{columns}
 		\column{0.5\textwidth}
-		\textbf{Arduino (z.B. ESP8266)}
+		\textbf{Arduino (e.g., ESP8266)}
 		\begin{itemize}
-			\item "Blinky" (mit \texttt{delay()})
-			\item \textbf{\~250+ KByte Flash}
-			\item Einfach: \texttt{digitalWrite(D1, HIGH);}
+			\item "Blinky" (with \texttt{delay()})
+			\item \textbf{\sim 250+ KByte Flash}
+			\item Simple: \texttt{digitalWrite(D1, HIGH);}
 		\end{itemize}
 		
 		\column{0.5\textwidth}
 		\textbf{CMSIS (STM32F103)}
 		\begin{itemize}
-			\item "Blinky" (mit SysTick)
-			\item \textbf{\~1 KByte Flash}
-			\item Komplexer: \texttt{GPIOC->BSRR = ...;}
+			\item "Blinky" (with SysTick)
+			\item \textbf{\sim 1 KByte Flash}
+			\item More complex: \texttt{GPIOC->BSRR = ...;}
 		\end{itemize}
 	\end{columns}
 	
 	\bigskip
 	\begin{center}
-		\Large\textbf{Wo sind die restlichen 249 KByte?!}
+		\Large\textbf{Where are the remaining 249 KByte?!}
 	\end{center}
 \end{frame}
 
-\begin{frame}[fragile]{Motivation: Kontrolle statt Komfort}
-	\textbf{Antwort: Wir haben keinen "Overhead".}
+\begin{frame}[fragile]{Motivation: Control instead of Convenience}
+	\textbf{Answer: There is no "overhead".}
 	
 	\medskip
-	\textbf{1. Kein Framework-Overhead}
+	\textbf{1. No Framework Overhead}
 	\begin{itemize}
 		\item \textbf{Arduino:} \texttt{digitalWrite(PIN\_NAME);}
-		\item \textit{Was passiert:} Ruft 10+ C++ Funktionen auf, übersetzt Pin-Namen in Port/Bit, prüft Timer-Konflikte...
+		\item \textit{What happens:} Calls 10+ C++ functions, translates pin names to port/bit, checks for timer conflicts...
 		\item \textbf{CMSIS:} \texttt{GPIOC->BSRR = GPIO\_BSRR\_BR13;}
-		\item \textit{Was passiert:} Wird zu 3-4 Maschinenbefehlen übersetzt.
+		\item \textit{What happens:} Compiles down to 3-4 machine instructions.
 	\end{itemize}
 	
 	\medskip
-	\textbf{2. Kein Betriebssystem (RTOS) / Stacks}
+	\textbf{2. No Operating System (RTOS) / Stacks}
 	\begin{itemize}
-		\item \textbf{ESP8266:} Lädt *immer* ein FreeRTOS und den WLAN-Stack, nur um \texttt{delay()} auszuführen.
-		\item \textbf{Unser Code:} Unser \texttt{Delay\_ms()} sind 3 Zeilen C-Code.
+		\item \textbf{ESP8266:} \emph{Always} loads a FreeRTOS and the Wi-Fi stack just to execute \texttt{delay()}.
+		\item \textbf{The CMSIS code:} The \texttt{Delay\_ms()} is 3 lines of C code.
 	\end{itemize}
 	
 	\medskip
-	\rightarrow \textbf{Fazit:} Wir tauschen Komfort gegen \textbf{Kontrolle, Effizienz} und \textbf{minimalen Speicherbedarf}.
+	\rightarrow \textbf{Conclusion:} Convenience is traded for \textbf{Control, Efficiency}, and \textbf{Minimal Memory Footprint}.
 \end{frame}
 
-\section{Architektur \& Grundlagen}
+\section{Architecture \& Basics}
 
-\begin{frame}{Architektur 1: Timing mit dem SysTick-Timer}
+\begin{frame}{Architecture 1: Timing with the SysTick Timer}
 	\begin{itemize}
-		\item \textbf{Was ist SysTick?} Ein einfacher 24-Bit "Countdown"-Timer, der \textit{direkt im Cortex-M Kern} sitzt.
-		\item \textbf{Wofür?} Ideal als "Taktgeber" für eine simple \texttt{delay}-Funktion.
-		\item \textbf{CMSIS-Core Funktion:} \texttt{SysTick\_Config(uint32\_t ticks)}
+		\item \textbf{What is SysTick?} A simple 24-bit "countdown" timer located \textit{directly within the Cortex-M Core}.
+		\item \textbf{What is it for?} Ideal as a "time base" (ticker) for a simple \texttt{delay} function.
+		\item \textbf{CMSIS-Core Function:} \texttt{SysTick\_Config(uint32\_t ticks)}
 	\end{itemize}
-	\textbf{Die Idee:}
+	\textbf{The Idea:}
 	\begin{enumerate}
-		\item Wir konfigurieren den SysTick so, dass er alle \textbf{1ms} einen Interrupt auslöst.
+		\item The SysTick is configured to trigger an interrupt every \textbf{1ms}.
 		\item \texttt{SysTick\_Config(SystemCoreClock / 1000);}
-		\item \texttt{SystemCoreClock} ist eine globale Variable (aus \texttt{system\_stm32f10xx.c}) mit unserem CPU-Takt (8MHz HSI).
-		\item $8.000.000 / 1000 = 8000$ Ticks.
-		\item Der SysTick zählt von 8000 auf 0, löst einen Interrupt aus (\texttt{SysTick\_Handler}) und startet neu.
+		\item \texttt{SystemCoreClock} is a global variable (from \texttt{system\_stm32f10xx.c}) holding the CPU clock (e.g., 8MHz HSI).
+		\item $8,000,000 / 1000 = 8000$ ticks.
+		\item The SysTick counts from 8000 down to 0, triggers an interrupt (\texttt{SysTick\_Handler}), and restarts.
 	\end{enumerate}
 \end{frame}
 
-\begin{frame}{Architektur 2: Was ist UART (Bare-Metal)?}
-	\textbf{Schritt 1: Takt (RCC)}
+\begin{frame}{Architecture 2: What is UART (Bare-Metal)?}
+	\textbf{Step 1: Clock (RCC)}
 	\begin{itemize}
-		\item Wir brauchen Takt für:
+		\item A clock signal is needed for:
 		\begin{itemize}
-			\item \texttt{USART1} (die Peripherie selbst)
-			\item \texttt{GPIOA} (für die Pins)
+			\item \texttt{USART1} (the peripheral itself)
+			\item \texttt{GPIOA} (for the pins)
 			\item \texttt{AFIO} (Alternate Function IO)
 		\end{itemize}
 		\item Register: \texttt{RCC->APB2ENR}
 	\end{itemize}
 	
-	\textbf{Schritt 2: GPIO (Pins)}
+	\textbf{Step 2: GPIO (Pins)}
 	\begin{itemize}
-		\item "Blue Pill" nutzt \texttt{PA9} (TX) und \texttt{PA10} (RX) für \texttt{USART1}.
-		\item Konfiguration (im \texttt{GPIOA->CRH} Register):
+		\item The "Blue Pill" board uses \texttt{PA9} (TX) and \texttt{PA10} (RX) for \texttt{USART1}.
+		\item Configuration (in the \texttt{GPIOA->CRH} register):
 		\begin{itemize}
 			\item \texttt{PA9 (TX)}: \textbf{Alternate Function, Push-Pull}, 10MHz
 			\item \texttt{PA10 (RX)}: \textbf{Input, Floating}
@@ -193,576 +194,606 @@
 	\end{itemize}
 \end{frame}
 
-\begin{frame}{Architektur 2: Was ist UART (Bare-Metal)? (Forts.)}
-	\textbf{Schritt 3: Baudrate (BRR)}
+\begin{frame}{Architecture 2: What is UART (Bare-Metal)? (Cont.)}
+	\textbf{Step 3: Baud Rate (BRR)}
 	\begin{itemize}
-		\item Wir müssen einen Divisor (Teiler) berechnen $\rightarrow$ Siehe Exkurs!
+		\item A divisor must be calculated $\rightarrow$ See Excursus!
 		\item Register: \texttt{USART1->BRR}
 	\end{itemize}
 	
-	\textbf{Schritt 4: Aktivierung (CR1)}
+	\textbf{Step 4: Activation (CR1)}
 	\begin{itemize}
-		\item UART aktivieren (\texttt{UE}), Senden (\texttt{TE}), Empfang (\texttt{RE}).
+		\item Enable the UART (\texttt{UE}), Transmitter (\texttt{TE}), and Receiver (\texttt{RE}).
 		\item Register: \texttt{USART1->CR1}
 	\end{itemize}
 \end{frame}
 
-\section{Exkurs: Register-Magie}
 
-\begin{frame}{Exkurs: Bit-Masking (Die Register-Magie)}
-	\textbf{Das Problem:}
-	\begin{itemize}
-		\item Wir wollen Pin \textbf{PA9} konfigurieren (z.B. auf \texttt{1001}).
-		\item Wir müssen das 32-Bit Register \texttt{GPIOA->CRH} bearbeiten.
-		\item \textbf{Ziel:} Ändere *nur* die 4 Bits für Pin 9, ohne die anderen 7 Pins zu zerstören!
-	\end{itemize}
-	
-	\medskip
-	\textbf{Das Register-Layout (\texttt{CRH}):}
-	\begin{center}
-		\begin{tabular}{|c|c|c|c|c|c|}
-			\hline
-			Pin & \dots & Pin 10 & \textbf{Pin 9} & Pin 8 \\ \hline
-			Bits & \dots & 11 \quad 10 \quad 9 \quad 8 & \textbf{7 \quad 6 \quad 5 \quad 4} & 3 \quad 2 \quad 1 \quad 0 \\ \hline
-		\end{tabular}
-	\end{center}
-	
-	\medskip
-	\rightarrow \textbf{Wir müssen die Bits 7, 6, 5 und 4 bearbeiten.}
+\section{Excursus: Register Magic}
+\begin{frame}{Excursus: Bit Masking (The Register Magic)}
+\textbf{The Problem:}
+\begin{itemize}
+\item The goal is to configure Pin \textbf{PA9} (e.g., to \texttt{1001}).
+\item The 32-bit register \texttt{GPIOA->CRH} must be modified.
+\item \textbf{Objective:} Change *only* the 4 bits for Pin 9, without destroying the other 7 pins!
+\end{itemize}
+
+\medskip
+\textbf{The Register Layout (\texttt{CRH}):}
+\begin{center}
+\begin{tabular}{|c|c|c|c|c|c|}
+	\hline
+	Pin & \dots & Pin 10 & \textbf{Pin 9} & Pin 8 \\ \hline
+	Bits & \dots & 11 \quad 10 \quad 9 \quad 8 & \textbf{7 \quad 6 \quad 5 \quad 4} & 3 \quad 2 \quad 1 \quad 0 \\ \hline
+\end{tabular}
+\end{center}
+
+\medskip
+\rightarrow \textbf{Bits 7, 6, 5, and 4 must be modified.}
 \end{frame}
 
-\begin{frame}[fragile]{Exkurs: Bit-Masking (Teil 1: Das Konzept)}
-	\textbf{Der "Read-Modify-Write" Vorgang}
-	\begin{itemize}
-		\item Man kann nicht nur 4 Bits schreiben. Man muss das ganze 32-Bit-Register lesen, ändern und zurückschreiben.
-		\item Dieser Vorgang hat immer zwei Schritte:
-		\begin{enumerate}
-			\item \textbf{Löschen (Masking):} Die Ziel-Bits auf 0 setzen (mit \texttt{\&= \~...}).
-			\item \textbf{Setzen (Writing):} Die neuen Bits auf 1 setzen (mit \texttt{|= ...}).
-		\end{enumerate}
-	\end{itemize}
+\begin{frame}[fragile]{Excursus: Bit Masking (Part 1: The Concept)}
+\textbf{The "Read-Modify-Write" Operation}
+\begin{itemize}
+\item It is not possible to write only 4 bits. The entire 32-bit register must be read, modified, and written back.
+\item This operation always has two steps:
+\begin{enumerate}
+	\item \textbf{Clearing (Masking):} Set the target bits to 0 (with \texttt{\&= \~...}).
+	\item \textbf{Setting (Writing):} Set the new bits to 1 (with \texttt{|= ...}).
+\end{enumerate}
+\end{itemize}
+
+\bigskip
+\textbf{Step 1: Setting the old bits for Pin 9 to 0.}
+\begin{lstlisting}[language=C, style=mystyle]
+// Short form (which is used):
+GPIOA->CRH &= ~(0xF << 4);
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Excursus: Bit Masking (Part 1: Detailed Analysis)}
+\textbf{Analysis of: \texttt{GPIOA->CRH \&= ~(0xF << 4);}}
+
+\begin{itemize}
+\item \texttt{0xF} $\Rightarrow$ \texttt{0b1111}
+\item \textit{(The 4-bit "pin mask")}
+
+\medskip
+\item \texttt{(0xF << 4)} $\Rightarrow$ \texttt{0b...0000 1111 0000}
+\item \textit{(Mask is shifted to the position of Pin 9: Bits 4-7)}
+
+\medskip
+\item \texttt{\~ (0xF << 4)} $\Rightarrow$ \texttt{0b...1111 0000 1111}
+\item \textit{(The "clear mask". Only bits 4-7 are 0)}
+
+\medskip
+\item \texttt{... \&= ...} $\Rightarrow$ (Bitwise AND assignment)
+\item \textit{(Everything ANDed with 1 remains. Everything ANDed with 0 becomes 0.)}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Excursus: Bit Masking (Part 2: Setting)}
+\textbf{Step 2: Setting the new bits for Pin 9.}
+\begin{itemize}
+\item The register now has zeroes at the Pin 9 position.
+\end{itemize}
+
+\bigskip
+\begin{lstlisting}[language=C, style=mystyle]
+GPIOA->CRH |= (0x9 << 4);
+\end{lstlisting}
+
+\textbf{What is happening here?}
+\begin{itemize}
+\item \texttt{0x9} $\Rightarrow$ \texttt{0b1001} (The new value for 10MHz AF-Out)
+\item \texttt{<< 4} $\Rightarrow$ "Shift the value to bit position 4"
+\item \texttt{(0x9 << 4)} $\Rightarrow$ \texttt{0b...10010000} (The "set mask")
+\item \texttt{|=} $\Rightarrow$ "Bitwise OR assignment"
+\item \textit{(The zeroes are overwritten with \texttt{1001})}
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Excursus: Baud Rate (Part 1: The Formula)}
+\textbf{The Problem:}
+\begin{itemize}
+\item The goal is to set 9600 Baud (Bits/s).
+\item A \textbf{divisor} must be calculated that divides the system clock ($f_{CLK}$) down to 9600.
+\end{itemize}
+
+\textbf{The Formula (from RM0008):}
+\begin{itemize}
+\item $\text{Baud} = f_{CLK} / (16 \times \text{USARTDIV})$
+\end{itemize}
+
+\textbf{Step 1: Solve for \texttt{USARTDIV}}
+\begin{itemize}
+\item $f_{CLK} = 8,000,000$ (The 8MHz HSI)
+\item $\text{USARTDIV} = 8,000,000 / (16 \times 9600)$
+\item $\text{USARTDIV} = 8,000,000 / 153,600$
+\item $\text{USARTDIV} = \textbf{52.0833...}$
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Excursus: Baud Rate (Part 2: The \texttt{BRR} Register)}
+\textbf{Problem:} How is \textbf{52.083} stored in a 16-bit register?
+
+\medskip
+\textbf{Solution:} The \texttt{BRR} (Baud Rate Register) is split:
+
+\begin{center}
+\begin{tabular}{|c|c|c|}
+	\hline
+	Bits & \textbf{[15 : 4]} (12 Bits) & \textbf{[3 : 0]} (4 Bits) \\ \hline
+	Content & \texttt{DIV\_Mantissa} & \texttt{DIV\_Fraction} \\ 
+	Meaning & Integer Part & Fractional Part (16ths) \\ \hline
+\end{tabular}
+\end{center}
+
+\medskip
+\textbf{Step 2: Splitting the number \texttt{52.083}}
+\begin{itemize}
+\item \textbf{Mantissa:} The integer part is \textbf{52} $\Rightarrow$ \texttt{0x34}
+\item \textbf{Fraction:} The fractional part is \textbf{0.083...}
+\item \textit{Conversion to 4-bit value:} $0.083 \times 16 = 1.33...$
+\item \textit{Rounding up:} \textbf{1} $\Rightarrow$ \texttt{0x01}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Excursus: Baud Rate (Part 3: The Code)}
+\textbf{Step 3: Assembling the parts in code}
+\begin{itemize}
+\item Mantissa = \texttt{0x34} (52)
+\item Fraction = \texttt{0x01} (1)
+\end{itemize}
+
+\bigskip
+\begin{lstlisting}[language=C, style=mystyle]
+USART1->BRR = (0x34 << 4) | 0x01;
+\end{lstlisting}
+
+\textbf{What is happening here?}
+\begin{itemize}
+\item \texttt{(0x34 << 4)} $\Rightarrow$ \texttt{0x340}
+\item The mantissa (52) is shifted left by 4 bits.
+\item \textit{(Binary: \texttt{...0011 0100 0000})}
+
+\medskip
+\item \texttt{| 0x01} $\Rightarrow$ \texttt{0x341}
+\item The fraction (1) is ORed into the empty 4 bits \texttt{[3:0]}.
+\item \textit{(Binary: \texttt{...0011 0100 0001})}
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Excursus: Baud Rate (Part 4: The Result)}
+\textbf{Analysis of: \texttt{USART1->BRR = 0x341;}}
+
+\begin{itemize}
+\item The register now holds the value \texttt{0x341}.
+\item The hardware reads this as:
+\begin{itemize}
+	\item Mantissa = \texttt{0x34} = 52
+	\item Fraction = \texttt{0x1} = 1
+\end{itemize}
+\item The resulting divisor is: $52 + (1/16) = \textbf{52.0625}$
+\end{itemize}
+
+\medskip
+\textbf{Comparison:}
+\begin{itemize}
+\item Desired divisor: 52.0833...
+\item Achieved divisor: 52.0625
+\end{itemize}
+\rightarrow \textit{The deviation is < 0.1\%, which is perfect for UART.}
+\end{frame}
+
+\section{Practice \& Exercise}
+
+% --- FRAME 1: Die Logik (Was soll der Code tun?) ---
+
+\begin{frame}[fragile]{Practice: The "Echo-Bot" (Part 1: The Logic)}
+	\textbf{Test: All Parts (SysTick, LED, UART) Together}
+	
+	\medskip
+	\textbf{Objective:} The MCU should send back (echo) every received UART character and toggle the LED upon reception.
 	
 	\bigskip
-	\textbf{Schritt 1: Die alten Bits für Pin 9 auf 0 setzen.}
+	\textbf{The core \texttt{main()} loop:}
 	\begin{lstlisting}[language=C, style=mystyle]
-		// Kurzform (die wir verwenden):
-		GPIOA->CRH &= ~(0xF << 4);
+while (1){
+	// 1. Wait (blocking) until a character arrives
+	char c = UART1_GetChar();
+	// 2. Send the same character back immediately (Echo)
+	UART1_SendChar(c);	
+	// 3. Toggle the LED as visual feedback
+	LED_Toggle();
+}
 	\end{lstlisting}
 \end{frame}
 
-\begin{frame}[fragile]{Exkurs: Bit-Masking (Teil 1: Detail-Analyse)}
-	\textbf{Analyse von: \texttt{GPIOA->CRH \&= ~(0xF << 4);}}
-	
-	\begin{itemize}
-		\item \texttt{0xF} $\Rightarrow$ \texttt{0b1111}
-		\item \textit{(Unsere 4-Bit "Pin-Maske")}
-		
-		\medskip
-		\item \texttt{(0xF << 4)} $\Rightarrow$ \texttt{0b...0000 1111 0000}
-		\item \textit{(Maske wird an die Position von Pin 9 geschoben: Bits 4-7)}
-		
-		\medskip
-		\item \texttt{\~ (0xF << 4)} $\Rightarrow$ \texttt{0b...1111 0000 1111}
-		\item \textit{(Die "Lösch-Maske". Nur die Bits 4-7 sind 0)}
-		
-		\medskip
-		\item \texttt{... \&= ...} $\Rightarrow$ (Bitweise UND-Zuweisung)
-		\item \textit{(Alles, was mit 1 per UND verknüpft wird, bleibt. Alles, was mit 0 per UND verknüpft wird, wird 0.)}
-	\end{itemize}
-\end{frame}
+% --- FRAME 2: Das Setup (Wie teste ich den Code?) ---
 
-\begin{frame}[fragile]{Exkurs: Bit-Masking (Teil 2: Setzen)}
-	\textbf{Schritt 2: Die neuen Bits für Pin 9 setzen.}
+\begin{frame}{Practice: The "Echo-Bot" (Part 2: Setup \& Test)}
+	
+	\textbf{1. Hardware Setup (Wiring)}
 	\begin{itemize}
-		\item Das Register hat jetzt Nullen an der Position von Pin 9.
+		\item Connect your USB-UART Converter (FTDI, CH340, etc.)
+		\item Converter \textbf{TX} $\rightarrow$ Blue Pill \textbf{PA10 (RX)}
+		\item Converter \textbf{RX} $\rightarrow$ Blue Pill \textbf{PA9 (TX)}
+		\item Converter \textbf{GND} $\rightarrow$ Blue Pill \textbf{GND}
 	\end{itemize}
 	
-	\bigskip
-	\begin{lstlisting}[language=C, style=mystyle]
-		GPIOA->CRH |= (0x9 << 4);
-	\end{lstlisting}
 	
-	\textbf{Was passiert hier?}
-	\begin{itemize}
-		\item \texttt{0x9} $\Rightarrow$ \texttt{0b1001} (Unser neuer Wert für 10MHz AF-Out)
-		\item \texttt{<< 4} $\Rightarrow$ "Schiebe den Wert an Bit-Position 4"
-		\item \texttt{(0x9 << 4)} $\Rightarrow$ \texttt{0b...10010000} (Die "Setz-Maske")
-		\item \texttt{|=} $\Rightarrow$ "Bitweise ODER-Zuweisung"
-		\item \textit{(Die Nullen werden mit \texttt{1001} überschrieben)}
-	\end{itemize}
-\end{frame}
-
-\begin{frame}{Exkurs: Baudrate (Teil 1: Die Formel)}
-	\textbf{Das Problem:}
-	\begin{itemize}
-		\item Wir wollen 9600 Baud (Bits/s) einstellen.
-		\item Wir müssen einen \textbf{Divisor} (Teiler) berechnen, der unseren Systemtakt ($f_{CLK}$) auf 9600 herunterbricht.
-	\end{itemize}
-	
-	\textbf{Die Formel (aus RM0008):}
-	\begin{itemize}
-		\item $\text{Baud} = f_{CLK} / (16 \times \text{USARTDIV})$
-	\end{itemize}
-	
-	\textbf{Schritt 1: Nach \texttt{USARTDIV} auflösen}
-	\begin{itemize}
-		\item $f_{CLK} = 8.000.000$ (Unser 8MHz HSI)
-		\item $\text{USARTDIV} = 8.000.000 / (16 \times 9600)$
-		\item $\text{USARTDIV} = 8.000.000 / 153.600$
-		\item $\text{USARTDIV} = \textbf{52.0833...}$
-	\end{itemize}
-\end{frame}
-
-\begin{frame}{Exkurs: Baudrate (Teil 2: Das \texttt{BRR} Register)}
-	\textbf{Problem:} Wie speichern wir \textbf{52.083} in einem 16-Bit Register?
 	
 	\medskip
-	\textbf{Lösung:} Das \texttt{BRR} (Baud Rate Register) ist aufgeteilt:
-	
-	\begin{center}
-		\begin{tabular}{|c|c|c|}
-			\hline
-			Bits & \textbf{[15 : 4]} (12 Bits) & \textbf{[3 : 0]} (4 Bits) \\ \hline
-			Inhalt & \texttt{DIV\_Mantissa} & \texttt{DIV\_Fraction} \\ 
-			Bedeutung & Ganzzahl-Teil & Bruch-Teil (16tel) \\ \hline
-		\end{tabular}
-	\end{center}
-	
-	\medskip
-	\textbf{Schritt 2: Unsere Zahl \texttt{52.083} aufteilen}
+	\textbf{2. Host Setup (PC Terminal)}
 	\begin{itemize}
-		\item \textbf{Mantisse:} Der Ganzzahl-Teil ist \textbf{52} $\Rightarrow$ \texttt{0x34}
-		\item \textbf{Fraktion:} Der Bruch-Teil ist \textbf{0.083...}
-		\item \textit{Umrechnung in 4-Bit-Wert:} $0.083 \times 16 = 1.33...$
-		\item \textit{Wir runden auf:} \textbf{1} $\Rightarrow$ \texttt{0x01}
-	\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Exkurs: Baudrate (Teil 3: Der Code)}
-	\textbf{Schritt 3: Die Teile im Code zusammensetzen}
-	\begin{itemize}
-		\item Mantisse = \texttt{0x34} (52)
-		\item Fraktion = \texttt{0x01} (1)
-	\end{itemize}
-	
-	\bigskip
-	\begin{lstlisting}[language=C, style=mystyle]
-		USART1->BRR = (0x34 << 4) | 0x01;
-	\end{lstlisting}
-	
-	\textbf{Was passiert hier?}
-	\begin{itemize}
-		\item \texttt{(0x34 << 4)} $\Rightarrow$ \texttt{0x340}
-		\item Die Mantisse (52) wird 4 Bits nach links geschoben.
-		\item \textit{(Binär: \texttt{...0011 0100 0000})}
-		
-		\medskip
-		\item \texttt{| 0x01} $\Rightarrow$ \texttt{0x341}
-		\item Die Fraktion (1) wird mit ODER in die leeren 4 Bits \texttt{[3:0]} eingefügt.
-		\item \textit{(Binär: \texttt{...0011 0100 0001})}
-	\end{itemize}
-\end{frame}
-
-\begin{frame}[fragile]{Exkurs: Baudrate (Teil 4: Das Ergebnis)}
-	\textbf{Analyse von: \texttt{USART1->BRR = 0x341;}}
-	
-	\begin{itemize}
-		\item Das Register hat jetzt den Wert \texttt{0x341}.
-		\item Die Hardware liest das als:
-		\begin{itemize}
-			\item Mantisse = \texttt{0x34} = 52
-			\item Fraktion = \texttt{0x1} = 1
-		\end{itemize}
-		\item Der resultierende Divisor ist: $52 + (1/16) = \textbf{52.0625}$
+		\item Use a Serial Terminal (e.g., PuTTY, CoolTerm, VS Code).
+		\item Settings: \textbf{9600} Baud, 8-N-1, No Flow Control.
 	\end{itemize}
 	
 	\medskip
-	\textbf{Vergleich:}
+	\textbf{3. Acceptance Criteria (Verification)}
 	\begin{itemize}
-		\item Gewünschter Divisor: 52.0833...
-		\item Erreichter Divisor: 52.0625
-	\end{itemize}
-	\rightarrow \textit{Die Abweichung ist < 0.1\%, was für UART perfekt ist.}
-\end{frame}
-
-\section{Praxis \& Übung}
-
-\begin{frame}[fragile]{Praxis: Der "Echo-Bot"}
-	\textbf{Test 2: Alle Teile (SysTick, LED, UART) zusammen}
-	
-	\medskip
-	\textbf{Ziel:} Der MCU soll jedes empfangene UART-Zeichen zurücksenden (Echo) und dabei die LED togglen.
-	
-	\bigskip
-	\textbf{Auszug aus der \texttt{main()}-Schleife:}
-	\begin{lstlisting}[language=C, style=mystyle]
-		while (1)
-		{
-			// 1. Warte blockierend, bis ein Zeichen reinkommt
-			char c = UART1_GetChar();
-			// 2. Sende dasselbe Zeichen sofort zurück (Echo)
-			UART1_SendChar(c);
-			// 3. Toggle die LED als visuelles Feedback
-			LED_Toggle();
-		}
-	\end{lstlisting}
-	
-	\medskip
-	\textbf{Hardware-Setup:} USB-UART-Konverter (FTDI, CH340)
-	\begin{itemize}
-		\item Konverter TX $\rightarrow$ Blue Pill PA10 (RX)
-		\item Konverter RX $\rightarrow$ Blue Pill PA9 (TX)
-		\item Konverter GND $\rightarrow$ Blue Pill GND
+		\item If you type \textbf{'A'} in the terminal...
+		\item ...you must see \textbf{'A'} echoed back.
+		\item ...the PC13 LED must toggle \textbf{once}.
 	\end{itemize}
 \end{frame}
 
-
-\begin{frame}{Übung: "Morse-Bot" (Teil 1: Regeln)}
-	\textbf{Ziel:} Erweitere den "Echo-Bot" zum "Morse-Bot".
+\begin{frame}{Exercise: "Morse-Bot" (Part 1: Rules)}
+	\textbf{Objective:} Extend the "Echo-Bot" to a "Morse-Bot".
 	
 	\medskip
-	\textbf{Anforderung:} Empfange ein Zeichen per UART, gib es als Morse-Code auf der LED aus.
+	\textbf{Requirement:} Receive a character via UART, output it as Morse code on the LED.
 	
 	\medskip
-	\textbf{Basis-Timing:}
+	\textbf{Base Timing:}
 	\begin{itemize}
-		\item \texttt{DIT\_MS = 100} (z.B. 100 Millisekunden)
+		\item \texttt{DIT\_MS = 100} (e.g., 100 milliseconds)
 	\end{itemize}
 	
-	\textbf{Morse-Regeln:}
+	\textbf{Morse Rules:}
 	\begin{itemize}
-		\item \textbf{Dit (Punkt):} LED AN (1 * \texttt{DIT\_MS}), LED AUS (1 * \texttt{DIT\_MS})
-		\item \textbf{Dah (Strich):} LED AN (3 * \texttt{DIT\_MS}), LED AUS (1 * \texttt{DIT\_MS})
-		\item \textbf{Pause (Buchstaben):} (3 * \texttt{DIT\_MS})
-		\item \textbf{Pause (Wort/Space):} (7 * \texttt{DIT\_MS})
+		\item \textbf{Dit (Dot):} LED ON (1 * \texttt{DIT\_MS}), LED OFF (1 * \texttt{DIT\_MS})
+		\item \textbf{Dah (Dash):} LED ON (3 * \texttt{DIT\_MS}), LED OFF (1 * \texttt{DIT\_MS})
+		\item \textbf{Pause (Letters):} (3 * \texttt{DIT\_MS})
+		\item \textbf{Pause (Word/Space):} (7 * \texttt{DIT\_MS})
 	\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Übung: "Morse-Bot" (Teil 2: Aufgaben)}
-	\textbf{Aufgaben:}
+\begin{frame}[fragile]{Exercise: "Morse-Bot" (Part 2: Tasks)}
+	\textbf{Tasks:}
 	\begin{enumerate}
-		\item Erstelle zwei neue Funktionen:
+		\item Create two new functions:
 		\item \texttt{void morse\_dit(void)}
 		\item \texttt{void morse\_dah(void)}
-		\item \textit{(Diese rufen \texttt{LED\_On()}, \texttt{LED\_Off()} und \texttt{Delay\_ms()} auf)}
+		\item \textit{(These will call \texttt{LED\_On()}, \texttt{LED\_Off()} and \texttt{Delay\_ms()})}
 		
 		\medskip
-		\item Erstelle eine Funktion \texttt{void morse\_char(char c)}.
-		\item Nutze ein \texttt{switch (c)} Statement.
-		\item Implementiere (z.B.): 'S' (\texttt{...}), 'O' (\texttt{---}), 'A' (\texttt{.-})
+		\item Create a function \texttt{void morse\_char(char c)}.
+		\item Use a \texttt{switch (c)} statement.
+		\item Implement (e.g.): 'S' (\texttt{...}), 'O' (\texttt{---}), 'A' (\texttt{.-})
 		
 		\medskip
-		\item Ändere deine \texttt{main()}-Schleife:
+		\item Modify your \texttt{main()} loop:
 		\item \texttt{char c = UART1\_GetChar();}
-		\item \texttt{UART1\_SendChar(c);} // Echo (gut für Debugging)
+		\item \texttt{UART1\_SendChar(c);} // Echo (good for debugging)
 		\item \texttt{morse\_char(c);}
-		\item \texttt{Delay\_ms(DIT\_MS * 3);} // Pause nach dem Buchstaben
+		\item \texttt{Delay\_ms(DIT\_MS * 3);} // Pause after the letter
 	\end{enumerate}
 \end{frame}
 
-\section{Debugging \& Ausblick}
+\section{Debugging \& Outlook}
 
-\begin{frame}[fragile]{Debugging (Falle 1): UART-TX (Senden) ging nicht}
-	\textbf{Problem:} Der "Lebenszeichen"-Test (\texttt{UART1\_SendChar('!')}) sendet nichts. Die TX-Leitung (PA9) bleibt still.
+\begin{frame}[fragile]{Debugging (Trap 1): UART-TX (Sending) Failed}
+	\textbf{Problem:} The "life sign" test (\texttt{UART1\_SendChar('!')}) sends nothing. The TX line (PA9) remains silent.
 	
 	\bigskip
-	\textbf{Die Ursache: Register-Tippfehler}
+	\textbf{The Cause: Register Typo}
 	\begin{itemize}
 		\item \texttt{CRH} = Control Register \textbf{High} (Pins 8-15)
 		\item \texttt{CRL} = Control Register \textbf{Low} (Pins 0-7)
 	\end{itemize}
 	
 	\bigskip
-	\textbf{Der fehlerhafte Code:}
+	\textbf{The Faulty Code:}
 	\begin{lstlisting}[language=C, style=mystyle]
-		// Pin 9 (TX) Konfiguration
-		GPIOA->CRH &= ~(0xF << 4); // Löscht Bits für Pin 9 im CRH (Korrekt)
-		GPIOA->CRL |= (0x9 << 4); // Schreibt Bits für Pin 1 im CRL (FATALER FEHLER!)
+// Pin 9 (TX) Configuration
+// Clears bits for Pin 9 in CRH (Correct)
+GPIOA->CRH &= ~(0xF << 4); 
+// Writes bits for Pin 1 in CRL (FATAL MISTAKE!)
+GPIOA->CRL |= (0x9 << 4); 
 	\end{lstlisting}
 	
 	\medskip
-	\textbf{Erkenntnis:} Pin 9 (TX) war \texttt{0000} (Input Analog) und konnte nicht senden. Pin 1 wurde stattdessen (sinnlos) konfiguriert.
+	\textbf{Realization:} Pin 9 (TX) was \texttt{0000} (Input Analog) and could not transmit. Pin 1 was configured instead (uselessly).
 \end{frame}
 
-% --- HIER DIE AUFGETEILTEN FOLIEN ---
-
-\begin{frame}[fragile]{Debugging (Falle 2): UART-RX (Problem)}
-	\textbf{Problem:} Der Code (z.B. "Echo-Bot") scheint "eingefroren". Das Terminal bleibt leer.
+\begin{frame}[fragile]{Debugging (Trap 2): UART-RX (The Problem)}
+	\textbf{Problem:} The code (e.g., "Echo-Bot") appears "frozen". The terminal remains empty.
 	
 	\bigskip
-	\textbf{Der (vermeintliche) Fehler:}
+	\textbf{The (Supposed) Error:}
 	\begin{lstlisting}[language=C, style=mystyle]
-		while (1)
-		{
-			// HIER WARTET DAS PROGRAMM!
-			char c = UART1_GetChar(); 
+while (1){
+	// THE PROGRAM IS WAITING HERE!
+	char c = UART1_GetChar(); 	
+	// These lines are NEVER reached
+	// until a character is received.
+	UART1_SendChar('!'); 
+	LED_Toggle();
+}
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Debugging (Trap 2): UART-RX (The Realization)}
+\textbf{Realization: This is not a bug, this is the design!}
+	\begin{itemize}
+		\item The \texttt{UART1\_GetChar()} function is \textbf{blocking}.
+		\item It waits in its *own* \texttt{while} loop for the \texttt{RXNE} flag.
+		\item The program "hangs" as expected, waiting for input.
+	\end{itemize}
+	
+	\medskip
+	\textbf{Best Debug Strategy (The "Life Sign" Test):}
+	\begin{itemize}
+		\item \textbf{Always} test Transmission (TX) first and in isolation (e.g., in a 1-second loop), \textit{before} waiting for Reception (RX).
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Debugging (Trap 3): C-Syntax \& Compiler Errors}
+	\textbf{Problem 1 (Fatal):} Linker Error: \texttt{undefined reference to 'tolwer'}
+	\begin{itemize}
+		\item \textbf{Cause:} Simple typo. The function is \texttt{tolower()}.
+		\item \textbf{Realization:} The linker (\texttt{ld}) fails if a function was declared (or implicitly assumed) but never \textit{defined} (implemented).
+	\end{itemize}
+	
+	\bigskip
+	\textbf{Problem 2 (Warning):} Compiler Warning: \texttt{expected 'char' but argument is 'char *'}
+	\begin{itemize}
+		\item \textbf{Cause:} \texttt{UART1\_SendChar("R");} instead of \texttt{UART1\_SendChar('R');}
+		\item \textbf{Central C-Realization:}
+		\begin{itemize}
+			\item \texttt{'R'} (single quotes): Is a \texttt{char}. A single number (ASCII value).
+			\item \texttt{"R"} (double quotes): Is a \texttt{char*}. A pointer to a string (\texttt{\{'R', '\textbackslash{}0'\}}) in memory.
+		\end{itemize}
+		\end{itemize}
+		\end{frame}
+		
+		\begin{frame}{Recap: What Was Learned}
+			\textbf{Learned:}
+			\begin{enumerate}
+				\item \texttt{SysTick} is the CMSIS standard for timing (\texttt{delay}).
+				\item \texttt{volatile} is essential for shared variables (ISR vs. main).
+				\item \textbf{Bit Masking:} The \texttt{\&= \~...} and \texttt{|= ...} dance (Read-Modify-Write).
+				\item \textbf{Baud Rate:} How to calculate $f_{CLK}$ and the divisor (Mantissa/Fraction) into the \texttt{BRR} register.
+				\item \textbf{C-Syntax:} The difference between \texttt{'c'} (char) and \texttt{"c"} (char*).
+				\item \textbf{Debugging:} \texttt{CRH} vs. \texttt{CRL}, and testing \texttt{TX} before \texttt{RX}.
+			\end{enumerate}
+		\end{frame}
+		
+		\begin{frame}{Outlook: The Problem with "Blocking"}
+			\textbf{The BIG Problem with the current code:}
+			\begin{itemize}
+				\item \texttt{UART1\_GetChar()} is \textbf{blocking}.
+				\item \texttt{Delay\_ms()} is \textbf{blocking}.
+				\item \textit{The system "freezes" while it waits or flashes Morse code. It misses new UART data during this time!}
+			\end{itemize}
 			
-			// Diese Zeilen werden NIE erreicht,
-			// bis ein Zeichen empfangen wird.
-			UART1_SendChar('!'); 
-			LED_Toggle();
-		}
-	\end{lstlisting}
-\end{frame}
-
-\begin{frame}{Debugging (Falle 2): UART-RX (Erkenntnis)}
-	\textbf{Erkenntnis: Das ist kein Fehler, das ist das Design!}
-	\begin{itemize}
-		\item Unsere Funktion \texttt{UART1\_GetChar()} ist \textbf{blockierend}.
-		\item Sie wartet in ihrer *eigenen* \texttt{while}-Schleife auf das \texttt{RXNE}-Flag.
-		\item Das Programm "hängt" wie erwartet und wartet auf Input.
-	\end{itemize}
-	
-	\medskip
-	\textbf{Beste Debug-Strategie (Der "Lebenszeichen"-Test):}
-	\begin{itemize}
-		\item Teste Senden (TX) *immer* zuerst und isoliert, z.B. mit einer 1-Sekunden-Schleife, \textit{bevor} du auf Empfang (RX) wartest.
-	\end{itemize}
-\end{frame}
-
-% --- HIER IST DIE NEUE FOLIE ---
-
-\begin{frame}[fragile]{Debugging (Falle 3): C-Syntax \& Compiler-Fehler}
-	\textbf{Problem 1 (Fatal):} Linker-Fehler: \texttt{undefined reference to 'tolwer'}
-	\begin{itemize}
-		\item \textbf{Ursache:} Simpler Tippfehler. Es heißt \texttt{tolower()}.
-		\item \textbf{Erkenntnis:} Der Linker (\texttt{ld}) bricht ab, wenn eine Funktion zwar deklariert (oder implizit angenommen), aber nirgends \textit{definiert} wurde.
-	\end{itemize}
+			\bigskip
+			\textbf{Outlook (Part 3): The Solution}
+			\begin{itemize}
+				\item \textbf{Interrupts:} UART reception in the background (ISR).
+				\item \textbf{Ring Buffers:} Buffering data.
+				\item \textbf{State Machines:} Flashing Morse code without blocking the \texttt{main} loop.
+			\end{itemize}
+		\end{frame}
+% --- FRAME 1: Das Problem (Warum blockieren schlecht ist) ---
+\begin{frame}{Part 3: The "Blocking" Problem}
+\textbf{Analysis of our Morse-Bot (Part 2):}
+\begin{itemize}
+\item The CPU is "deaf" while it is sending Morse code.
+\item It is completely stuck inside the \texttt{Delay\_ms()} function.
+\item During this time, it cannot call \texttt{UART1\_GetChar()} to check for new data.
+\end{itemize}
 	
 	\bigskip
-	\textbf{Problem 2 (Warnung):} Compiler-Warnung: \texttt{expected 'char' but argument is 'char *'}
-	\begin{itemize}
-		\item \textbf{Ursache:} \texttt{UART1\_SendChar("R");} statt \texttt{UART1\_SendChar('R');}
-		\item \textbf{Zentrale C-Erkenntnis:}
-		\begin{itemize}
-			\item \texttt{'R'} (einfach): Ist ein \texttt{char}. Eine einzelne Zahl (ASCII-Wert).
-			\item \texttt{"R"} (doppelt): Ist ein \texttt{char*}. Ein Zeiger auf einen String (\texttt{\{'R', '\textbackslash{}0'\}}) im Speicher.
-		\end{itemize}
-	\end{itemize}
-\end{frame}
-
-% --- HIER DIE AUFGETEILTEN FOLIEN ---
-
-\begin{frame}{Recap: Was wir gelernt haben}
-	\textbf{Gelernt:}
-	\begin{enumerate}
-		\item \texttt{SysTick} ist die CMSIS-Standard für Timing (\texttt{delay}).
-		\item \texttt{volatile} ist essenziell bei geteilten Variablen (ISR vs. main).
-		\item \textbf{Bit-Masking:} Der \texttt{\&= \~...} und \texttt{|= ...} Tanz (Read-Modify-Write).
-		\item \textbf{Baudrate:} Wie man $f_{CLK}$ und Divisor (Mantisse/Fraktion) ins \texttt{BRR} Register rechnet.
-		\item \textbf{C-Syntax:} Der Unterschied zwischen \texttt{'c'} (char) und \texttt{"c"} (char*).
-		\item \textbf{Debugging:} \texttt{CRH} vs. \texttt{CRL}, und \texttt{TX}-Test vor \texttt{RX}-Test.
+	\textbf{The Consequence: UART Overrun}
+\begin{enumerate}
+\item User types 'S' $\rightarrow$ \texttt{morse\_char('s')} starts (blocks for ~500ms).
+\item User types 'O' (while 'S' is still flashing).
+\item The 'O' byte hits a "deaf" MCU. The UART hardware register (\texttt{DR}) is overwritten before the CPU can read it.
+\item \textbf{Data loss.}
 	\end{enumerate}
+	\end{frame}
+	
+	% --- FRAME 2: Die Lösung (Die "Briefkasten"-Analogie) ---
+\begin{frame}{Part 3: The Solution: Decoupling}
+\textbf{The Goal: Decouple Reception from Processing.}
+\begin{itemize}
+\item \textbf{Reception (Fast):} Must happen in the background, immediately when data arrives.
+\item \textit{$\rightarrow$ This is the job of an \textbf{Interrupt}.}
+\item \textbf{Processing (Slow):} The \texttt{main()} loop can do this when it has time (e.g., flashing the Morse code).
+\end{itemize}
+
+\bigskip
+\textbf{The Analogy: The "Mailbox"}
+\begin{itemize}
+\item The \textbf{Interrupt (ISR)} is the \textit{Mailman} who quickly drops a letter in the box (he doesn't wait).
+\item The \textbf{Ring Buffer} is the \textit{Mailbox} itself.
+\item The \textbf{Main Loop} is \textit{You}, checking the mailbox whenever you have a free moment.
+\end{itemize}
 \end{frame}
 
-\begin{frame}{Ausblick: Das Problem mit "Blocking"}
-	\textbf{Das GROSSE Problem unseres jetzigen Codes:}
-	\begin{itemize}
-		\item \texttt{UART1\_GetChar()} ist \textbf{blockierend}.
-		\item \texttt{Delay\_ms()} ist \textbf{blockierend}.
-		\item \textit{Das System "steht still", während es wartet oder morst. Es verpasst in dieser Zeit neue UART-Daten!}
-	\end{itemize}
-	
-	\bigskip
-	\textbf{Ausblick (Teil 3): Die Lösung}
-	\begin{itemize}
-		\item \textbf{Interrupts:} UART-Empfang im Hintergrund (ISR).
-		\item \textbf{Ringbuffer:} Daten zwischenspeichern.
-		\item \textbf{State Machines:} Morsen, ohne die \texttt{main}-Schleife zu blockieren.
-	\end{itemize}
-\end{frame}
-\section{Aufgabe 3: Non-Blocking Design (Interrupts)}
+% --- FRAME 3: Was IST ein Ringbuffer? (Definition) ---
+\begin{frame}{Architecture: What is a Ring Buffer?}
+\textbf{Also called: Circular Buffer or FIFO (First-In, First-Out)}
 
-\begin{frame}{Teil 3: Das "Blocking"-Problem}
-	\textbf{Analyse unseres Morse-Bots (Teil 2):}
-	\begin{itemize}
-		\item Die CPU ist "taub", während sie morst.
-		\item Sie hängt in \texttt{Delay\_ms()} fest.
-		\item In dieser Zeit kann sie \texttt{UART1\_GetChar()} nicht aufrufen.
+\medskip
+\begin{itemize}
+\item A simple array in RAM (e.g., 32 bytes).
+\item Two "pointers" (which are just index variables):
+\begin{itemize}
+\item \texttt{head}: Where the ISR \textit{writes the next byte to}.
+\item \texttt{tail}: Where the \texttt{main} loop \textit{reads the next byte from}.
 	\end{itemize}
-	
-	\bigskip
-	\textbf{Das Problem: UART Overrun}
-	\begin{enumerate}
-		\item User tippt 'S' $\rightarrow$ \texttt{morse\_char('s')} startet (blockiert ca. 500ms).
-		\item User tippt 'O' (während 'S' morst).
-		\item Das 'O' trifft auf einen "tauben" MCU. Das UART-Hardware-Register (DR) wird überschrieben, bevor die CPU es lesen kann.
-		\item \textbf{Datenverlust.}
-	\end{enumerate}
-	
-	\medskip
-	\textbf{Die Lösung: Entkopplung von Empfang \& Verarbeitung.}
-	\begin{itemize}
-		\item \textbf{Empfang (schnell):} Muss im Hintergrund passieren (Interrupt).
-		\item \textbf{Verarbeitung (langsam):} Darf die \texttt{main()}-Schleife machen.
+	\item When \texttt{head} or \texttt{tail} reach the end of the array, they "wrap around" back to 0.
 	\end{itemize}
-\end{frame}
-
-\begin{frame}{Architektur: Interrupt \& Ringbuffer}
-	\textbf{Unsere neue Architektur (Der "Briefkasten"):}
-	
-	\medskip
-	\textbf{1. Der UART RX-Interrupt (Die "Klingel")}
-	\begin{itemize}
-		\item Wir konfigurieren den UART so, dass er einen Interrupt (\texttt{USART1\_IRQHandler}) auslöst, sobald ein Byte ankommt (\texttt{RXNE}-Flag).
-		\item Die CPU stoppt kurz ihre Hauptarbeit (Morsen).
-	\end{itemize}
-	
-	\medskip
-	\textbf{2. Der Ringbuffer (Der "Briefkasten")}
-	\begin{itemize}
-		\item Die Interrupt-Routine (ISR) ist extrem schnell:
-		\item Sie liest das Byte aus \texttt{USART1->DR}.
-		\item Sie "wirft" das Byte in einen Puffer (den Ringbuffer).
-		\item Sie ist sofort wieder weg.
-	\end{itemize}
-	
-	\medskip
-	\textbf{3. Die \texttt{main()}-Schleife (Der "Leser")}
-	\begin{itemize}
-		\item Die \texttt{main()}-Schleife (Morse-Logik) schaut in ihrer Freizeit in den Ringbuffer, ob "Post" da ist und holt sich das nächste Byte ab.
-	\end{itemize}
-\end{frame}
-
-\begin{frame}{Architektur: Was ist ein Ringbuffer?}
-	\textbf{Auch: Circular Buffer oder FIFO (First-In, First-Out)}
-	
-	\medskip
-	\begin{itemize}
-		\item Ein einfaches Array im RAM (z.B. 32 Bytes groß).
-		\item Zwei "Zeiger" (eigentlich nur Index-Variablen):
+		
+		
+		
+		\textbf{States:}
 		\begin{itemize}
-			\item \texttt{head}: Wo die ISR das \textit{nächste Byte hineinschreibt}.
-			\item \texttt{tail}: Wo die \texttt{main}-Loop das \textit{nächste Byte herausliest}.
-		\end{itemize}
-		\item Wenn \texttt{head} oder \texttt{tail} das Ende des Arrays erreichen, "wrappen" sie zurück auf 0.
-		\item \textbf{Zustände:}
+	\item Buffer Empty: \texttt{head == tail}
+	\item Buffer Full: \texttt{head} is "just behind" \texttt{tail}
+	\end{itemize}
+	\end{frame}
+	
+	% --- FRAME 4: Das HÄUFIGSTE Problem mit Ringbuffern (Race Condition) ---
+		% (Diese Folie war zu voll, 'Overfull \vbox', ich habe sie geteilt)
+		\begin{frame}{Architecture: Ring Buffer (The Critical Risk)}
+		\textbf{WARNING: Race Condition}
 		\begin{itemize}
-			\item Puffer leer: \texttt{head == tail}
-			\item Puffer voll: \texttt{head} ist "kurz vor" \texttt{tail}
-		\end{itemize}
-	\end{itemize}
-	
-	\medskip
-	\textbf{WICHTIG (Race Condition):}
-	\begin{itemize}
-		\item \texttt{head} wird von einer ISR geändert.
-		\item \texttt{tail} wird von \texttt{main} geändert.
-		\item $\rightarrow$ Die \texttt{head/tail} Index-Variablen müssen \textbf{\texttt{volatile}} sein!
-	\end{itemize}
-\end{frame}
-\section{Aufgabe 3: Non-Blocking Design (Interrupts)}
-% (Wir gehen davon aus, dass die Folien zum Ringbuffer schon existieren)
+		\item \texttt{head} is modified by the \textbf{ISR context}.
+	\item \texttt{tail} is modified by the \textbf{main context}.
+\end{itemize}
 
-\begin{frame}[fragile]{Schritt 1: UART-Interrupt aktivieren (Die "Klingel")}
-	\textbf{Ziel:} Wir wollen nicht mehr aktiv auf \texttt{RXNE} warten (Polling).
-	
-	\medskip
-	\textbf{Lösung:} Wir sagen dem UART, er soll einen Interrupt auslösen, sobald das \texttt{RXNE}-Flag (Receive Register Not Empty) gesetzt wird.
-	
-	\bigskip
-	\textbf{Wie? In unserer \texttt{UART1\_Init()}-Funktion.}
-	\begin{itemize}
-		\item Wir müssen ein Bit im \texttt{USART1->CR1} (Control Register 1) setzen.
-		\item Das Bit heißt: \textbf{\texttt{RXNEIE}} (RXNE Interrupt Enable)
-	\end{itemize}
-	
-	\bigskip
-	\textbf{Der Code (Ergänzung in \texttt{UART1\_Init()}):}
-	\begin{lstlisting}[language=C, style=mystyle]
-		// Am Ende von UART1_Init(), nach dem Aktivieren von UE, TE, RE:
-		// Aktiviere den "Receive Register Not Empty" Interrupt
-		USART1->CR1 |= USART_CR1_RXNEIE;
-	\end{lstlisting}
-	
-	\medskip
-	\textbf{Ergebnis:} Ab jetzt sendet der UART ein "Interrupt-Signal" an den "Chef", wenn ein Byte ankommt.
+\medskip
+\textbf{The Problem:}
+\begin{itemize}
+\item The compiler does not know these are modified by two different contexts and will "optimize" access.
+\item It might cache the value in a CPU register, assuming it won't change "randomly". The \texttt{main} loop might never see the change the ISR made.
+\end{itemize}
 \end{frame}
 
-\begin{frame}[fragile]{Schritt 2: Den "Chef" (NVIC) informieren}
-	\textbf{Problem:} Nur weil der UART "klingelt", heißt das nicht, dass die CPU (der "Chef") zuhört.
-	
-	\medskip
-	\textbf{Lösung: Der NVIC (Nested Vectored Interrupt Controller)}
-	\begin{itemize}
-		\item Der NVIC ist der Interrupt-Manager direkt im Cortex-M Kern.
-		\item Er verwaltet *alle* Interrupt-Quellen (Timer, UARTs, GPIOs...).
-		\item Wir müssen dem NVIC sagen: "Hey, die Klingel von \texttt{USART1} ist uns wichtig. Stell sie an."
-	\end{itemize}
-	
-	\bigskip
-	\textbf{Der Code (Am Anfang von \texttt{main()})}
-	\begin{lstlisting}[language=C, style=mystyle]
-		// Wir müssen dem NVIC sagen, dass er den USART1-Interrupt
-		// global aktivieren soll.
-		// (CMSIS-Core Funktion)
-		NVIC_EnableIRQ(USART1_IRQn);
-	\end{lstlisting}
-	
-	\medskip
-	\textbf{Ergebnis:} Wenn \texttt{USART1} jetzt \texttt{RXNEIE} auslöst, wird die CPU ihre Arbeit unterbrechen und zur zuständigen ISR springen.
+% --- FRAME 4.5: Die LÖSUNG für die Race Condition ---
+\begin{frame}[fragile]{Architecture: Ring Buffer (The Solution)}
+\textbf{The Solution (Mandatory):}
+\begin{itemize}
+\item The index variables \textbf{must} be declared as \textbf{\texttt{volatile}}.
+\item \texttt{volatile uint32\_t head;}
+\item \texttt{volatile uint32\_t tail;}
+\item This forces the compiler to re-read the variable from RAM *every single time* it is accessed, even if it looks "inefficient".
+\item It prevents the "stale register" optimization bug.
+\end{itemize}
 \end{frame}
 
-\begin{frame}{Schritt 3: Der "Postbote" (Die ISR)}
-	\textbf{Ziel:} Die Interrupt Service Routine (ISR) muss *blitzschnell* sein.
-	\textbf{Was passiert:}
-	\begin{enumerate}
-		\item Ein Byte kommt an.
-		\item \texttt{RXNE}-Flag wird von Hardware gesetzt.
-		\item \texttt{RXNEIE}-Bit ist an $\rightarrow$ UART sendet Signal an NVIC.
-		\item \texttt{USART1\_IRQn} ist im NVIC an $\rightarrow$ CPU stoppt \texttt{main()}, springt zur ISR.
-	\end{enumerate}
-	\textbf{Die Implementierung (in \texttt{stm32f1xx\_it.c})}
-\end{frame}
-\begin{frame}[fragile]{Schritt 3: Der "Postbote" (Die ISR)}
-	\begin{lstlisting}[language=C, style=mystyle]
-	// Prototyp der Funktion ist in startup_stm32...s
-	void USART1_IRQHandler(void)
-	{
-		// 1. Prüfen, ob WIRKLICH ein RXNE-Interrupt der Grund war
-		if ( (USART1->SR & USART_SR_RXNE) )
-		{
-			// 2. Byte aus dem Datenregister lesen
-			//    (WICHTIG: Das löscht das RXNE-Flag automatisch!)
-			uint8_t byte = (uint8_t)(USART1->DR & 0xFF);
-			// 3. Byte in unseren "Briefkasten" werfen
-			RingBuffer_Write(&g_rxBuffer, byte);
-		}
-	}
+% --- FRAME 5: Implementierung 1 (Peripherie) ---
+\begin{frame}[fragile]{Step 1: Enable the UART Interrupt (The "Bell")}
+\textbf{Goal:} Stop actively waiting for \texttt{RXNE} (Polling).
+
+\medskip
+\textbf{Solution:} Tell the UART to trigger an interrupt as soon as the \texttt{RXNE} flag (Receive Register Not Empty) is set.
+
+\bigskip
+\textbf{How? In the \texttt{UART1\_Init()} function.}
+\begin{itemize}
+\item A bit must be set in \texttt{USART1->CR1} (Control Register 1).
+\item The bit is called: \textbf{\texttt{RXNEIE}} (RXNE Interrupt Enable)
+\end{itemize}
+
+\bigskip
+\textbf{The Code (Addition to \texttt{UART1\_Init()}):}
+\begin{lstlisting}[language=C, style=mystyle]
+// At the end of UART1_Init(), after enabling UE, TE, RE:
+// Enable the "Receive Register Not Empty" Interrupt
+USART1->CR1 |= USART_CR1_RXNEIE;
 \end{lstlisting}
 \end{frame}
-\section{Architektur (Speicher)}
-
-\begin{frame}{Exkurs: Flash vs. RAM (Die "Endurance"-Frage)}
-	\textbf{Deine Frage:} "Killt der Ringbuffer nicht meine Flash Endurance?"
+% --- FRAME 6: Implementierung 2 (Cortex-M Kern) ---
+\begin{frame}[fragile]{Step 2: Inform the "Boss" (The NVIC)}
+	\textbf{Problem:} Just because the UART "rings the bell" (\texttt{RXNEIE}) doesn't mean the CPU (the "boss") is listening.
 	
 	\medskip
-	\textbf{Antwort: Nein! Er killt sie \textit{null}, weil er \textit{nicht} im Flash liegt.}
+	\textbf{Solution: The NVIC (Nested Vectored Interrupt Controller)}
+	\begin{itemize}
+		\item The NVIC is the interrupt manager inside the Cortex-M Core.
+		\item It manages *all* interrupt sources (Timers, UARTs, GPIOs...).
+		\item We must tell the NVIC: "Hey, the bell from \texttt{USART1} is important. Turn it on."
+	\end{itemize}
+	
+	\bigskip
+	\textbf{The Code (At the start of \texttt{main()})}
+	\begin{lstlisting}[language=C, style=mystyle]
+		// We must tell the NVIC to globally enable
+		// the USART1 interrupt.
+		// (This is a CMSIS-Core function)
+		NVIC_EnableIRQ(USART1_IRQn);
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 7: Implementierung 3 (Die ISR - Logik) ---
+\begin{frame}{Step 3: The "Mailman" (The ISR)}
+	\textbf{Goal:} The Interrupt Service Routine (ISR) must be *lightning fast*.
+	
+	\textbf{What happens (The Chain):}
+	\begin{enumerate}
+		\item A byte arrives.
+		\item \texttt{RXNE} flag is set by hardware.
+		\item \texttt{RXNEIE} bit is active $\rightarrow$ UART sends signal to NVIC.
+		\item \texttt{USART1\_IRQn} is enabled in NVIC $\rightarrow$ CPU stops \texttt{main()}, jumps to ISR.
+	\end{enumerate}
+	
+	\textbf{The Implementation (in \texttt{stm32f1xx\_it.c})}
+\end{frame}
+
+% --- FRAME 8: Implementierung 3 (Die ROBUSTE ISR - Code) ---
+\begin{frame}{Step 3: The "Mailman" (The ROBUST ISR)}
+	\textbf{Problem:} The ISR can be triggered by errors (like Overrun).
+	If an error flag is not cleared, the UART will lock up.
+	
+	\textbf{Solution:} Check for (and clear) errors FIRST.
+\end{frame}
+\begin{frame}[fragile]{Step 3: The "Mailman" (The ROBUST ISR)}
+	\begin{lstlisting}[language=C, style=mystyle]
+void USART1_IRQHandler(void){
+	// --- 1. Error Handling (Overrun, Noise, etc.) ---
+	if (USART1->SR & (USART_SR_ORE | USART_SR_NE | USART_SR_FE))
+		{
+			// Reading SR (above) and then DR (below)
+			(void)(USART1->DR & 0xFF); 
+		}
+	// --- 2. "Happy Path" (Data Reception) ---
+	if ( (USART1->SR & USART_SR_RXNE) && 	(USART1->CR1 & USART_CR1_RXNEIE) )
+		{
+			// Reading DR clears the RXNE flag
+			uint8_t byte = (uint8_t)(USART1->DR & 0xFF);	
+			RingBuffer_Write(&g_rxBuffer, byte);
+		}
+}
+\end{lstlisting}
+\end{frame}
+
+\section{Architecture (Memory)}
+
+\begin{frame}{Excursus: Flash vs. RAM (The "Endurance" Question)}
+	\textbf{Your Question:} "Doesn't the ring buffer kill my Flash endurance?"
+	
+	\medskip
+	\textbf{Answer: No! It doesn't affect Flash at all.}
 	
 	\medskip
 	\begin{columns}
 		\column{0.5\textwidth}
-		\textbf{1. Flash (Programmspeicher)}
+		\textbf{Flash (Program Memory)}
 		\begin{itemize}
-			\item \textbf{Analogie:} Festplatte
-			\item \textbf{Nutzung:} Dein Code (\texttt{.bin}), \texttt{const}
-			\item \textbf{Eigenschaft:} Non-Volatile
-			\item \textbf{Problem:} \textbf{Limitierte} Zyklen (10k-100k), langsames Schreiben.
-			\item \textit{Wird nur beim Flashen genutzt.}
+			\item \textbf{Usage:} Code (\texttt{.bin}), constants
+			\item \textbf{Property:} Non-Volatile
+			\item \textbf{Limitation:} Limited write cycles
+			\item \textit{Only used during flashing}
 		\end{itemize}
 		
 		\column{0.5\textwidth}
-		\textbf{2. SRAM (Arbeitsspeicher)}
+		\textbf{SRAM (Working Memory)}
 		\begin{itemize}
-			\item \textbf{Analogie:} RAM / Arbeitsspeicher
-			\item \textbf{Nutzung:} Alle C-Variablen (\texttt{g\_msTicks}, unser Puffer-Array)
-			\item \textbf{Eigenschaft:} Volatile
-			\item \textbf{Vorteil:} \textbf{Unlimitierte} Zyklen, extrem schnelles Schreiben.
-			\item \textit{Wird permanent genutzt.}
+			\item \textbf{Usage:} Variables, buffer arrays
+			\item \textbf{Property:} Volatile
+			\item \textbf{Advantage:} Unlimited write cycles
+			\item \textit{Used continuously}
 		\end{itemize}
 	\end{columns}
 	
 	\bigskip
-	\textbf{Fazit: Unser Ringbuffer liegt komplett im SRAM. Schreib-Operationen im RAM sind "kostenlos" und "verschleißfrei".}
+	\textbf{Conclusion: Ring buffer resides entirely in SRAM. RAM writes are "free" and cause no wear.}
 \end{frame}
 \end{document}
