@@ -182,7 +182,7 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
+	 IWDG->KR = 0xAAAA;
     /* Start ADC conversion */
     ADC1->CR2 |= ADC_CR2_ADON;        // Start single conversion
 
