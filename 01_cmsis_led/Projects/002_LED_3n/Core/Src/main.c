@@ -75,18 +75,22 @@ void LED_On(uint8_t LEDNumber){
 	if (LEDNumber == 0)
 	{
 		GPIOC->BSRR = GPIO_BSRR_BR13;
+		// GPIOC->BSRR = (0x1<<29);
 	}
 	if (LEDNumber == 1)
 	{
 		GPIOA->BSRR = GPIO_BSRR_BS0;
+		// GPIOA->BSRR = (0x1<<0);
 	}
 	if (LEDNumber == 2)
 	{
 		GPIOA->BSRR = GPIO_BSRR_BS10;
+		// GPIOA->BSRR = (0x1<<10);
 	}
 	if (LEDNumber == 3)
 	{
 		GPIOB->BSRR = GPIO_BSRR_BS9;
+		// GPIOB->BSRR = (0x1<<9);
 	}
 }
 
@@ -94,18 +98,22 @@ void LED_Off(uint8_t LEDNumber){
 	if (LEDNumber == 0)
 	{
 		GPIOC->BSRR = GPIO_BSRR_BS13;
+		// GPIOC->BSRR = (0x1<<13);
 	}
 	if (LEDNumber == 1)
 	{
 		GPIOA->BSRR = GPIO_BSRR_BR0;
+		// GPIOA->BSRR = (0x1<<16);
 	}
 	if (LEDNumber == 2)
 	{
 		GPIOA->BSRR = GPIO_BSRR_BR10;
+		// GPIOA->BSRR = (0x1<<26);
 	}
 	if (LEDNumber == 3)
 	{
 		GPIOB->BSRR = GPIO_BSRR_BR9;
+		// GPIOB->BSRR = (0x1<<25);
 	}
 }
 void LED_Modus(LED_Mode_t mode, uint32_t delay){
@@ -130,9 +138,15 @@ void LED_Modus(LED_Mode_t mode, uint32_t delay){
 
 		case MODE_ALARM_FAST:
 			uint32_t alarmDelay = 250;
-			LED_On(0); LED_On(1); LED_On(2); LED_On(3);
+			// LED_On(0); LED_On(1); LED_On(2); LED_On(3);
+			GPIOC->BSRR = GPIO_BSRR_BR13;
+			GPIOA->BSRR = (GPIO_BSRR_BS0 | GPIO_BSRR_BS10);
+			GPIOB->BSRR = GPIO_BSRR_BS9;
 			Delay_ms(alarmDelay);
-			LED_Off(0);LED_Off(1);LED_Off(2);LED_Off(3);
+			// LED_Off(0);LED_Off(1);LED_Off(2);LED_Off(3);
+			GPIOC->BSRR = GPIO_BSRR_BS13;
+			GPIOA->BSRR = (GPIO_BSRR_BR0 | GPIO_BSRR_BR10);
+			GPIOB->BSRR = GPIO_BSRR_BR9;
 			Delay_ms(alarmDelay);
 
 			break;
