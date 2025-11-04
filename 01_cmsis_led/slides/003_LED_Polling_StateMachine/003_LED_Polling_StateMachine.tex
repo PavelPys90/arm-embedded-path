@@ -1,0 +1,398 @@
+% Showcase Präsentation mit SimSchoolDark Theme
+\documentclass{beamer}
+
+% Theme laden
+\usetheme{SimSchoolDark}
+
+% Für Python Code Highlighting
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tabu}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage[T1]{fontenc}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.45,0.45,0.45}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.96,0.96,0.96}
+
+\lstdefinestyle{mystyle}{
+	backgroundcolor=\color{backcolour},
+	commentstyle=\color{codegreen}\itshape,
+	keywordstyle=\color{magenta}\bfseries,
+	stringstyle=\color{codepurple},
+	numberstyle=\tiny\color{codegray},
+	basicstyle=\ttfamily\small,  % kompakter als footnotesize, aber noch gut lesbar
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=none,                % ich empfehle in Beamer lieber keine Zeilennummern
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=4,                   % einheitlich 4 Spaces für Tabs
+	frame=single,                % optional: Rahmen um den Code
+	rulecolor=\color{gray!50},   % dezente Rahmenfarbe
+	aboveskip=5pt,
+	belowskip=5pt,
+	xleftmargin=4pt, xrightmargin=4pt,
+	columns=fullflexible         % sorgt für gleichmäßige Zeichenabstände
+}
+
+\lstset{style=mystyle}
+
+% Python Code Style
+%\lstset{
+%	language=Python,
+%	basicstyle=\ttfamily\small,
+%	keywordstyle=\color{simschooldarkest}\bfseries,
+%	stringstyle=\color{simschoolmedium},
+%	commentstyle=\color{simschoollight}\itshape,
+%	numberstyle=\tiny\color{simschoollight},
+%	numbers=left,
+%	breaklines=true,
+%	frame=single,
+%	rulecolor=\color{simschoolmedium},
+%	backgroundcolor=\color{simschoolbg!50},
+%	showstringspaces=false,
+%	tabsize=4
+%}
+
+% Präsentationsinfos
+\title{ARM-Embedded-Path}
+\subtitle{LED: Polling vs State-Machine}
+\author{Pavel Pys}
+\date{\today}
+%\institute{}
+\begin{document}
+\begin{frame}{}
+	\maketitle
+\end{frame}
+% --- FRAME 1: Titel ---
+\begin{frame}
+	\frametitle{Core Concept: Polling vs. State Machine}
+	\textbf{Why our code becomes "deaf" and how to fix it}
+	
+	\bigskip
+	\begin{itemize}
+		\item \textbf{Goal:} Do two things simultaneously.
+		\begin{itemize}
+			\item Run a light pattern (\texttt{MODE\_CHRISTMAS})
+			\item \textit{WHILE} reacting to a button press.
+		\end{itemize}
+		\medskip
+		\item \textbf{Problem:} Our \texttt{Delay\_ms()} function is pure poison.
+		It "blocks" the entire CPU.
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 2: Agenda ---
+\begin{frame}
+	\frametitle{Agenda}
+	\begin{itemize}
+		\item \textbf{Concept 1: Simple Polling (Project 5)}
+		\begin{itemize}
+			\item Analogy: The child in the back seat
+		\end{itemize}
+		\medskip
+		\item \textbf{The Trap: Polling + Blocking Delays}
+		\begin{itemize}
+			\item Analogy: The cook staring at water
+			\item (Your problem from Project 5b)
+		\end{itemize}
+		\medskip
+		\item \textbf{Concept 2: Non-Blocking State Machine (Project 6/7)}
+		\begin{itemize}
+			\item Analogy: The professional cook with 5 timers
+		\end{itemize}
+		\medskip
+		\item \textbf{The 3 Pillars} of a State Machine (static, timer, switch)
+		\item \textbf{Comparison} \& Conclusion
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 3 ---
+\begin{frame}
+	\frametitle{Concept 1: Simple Polling ("Asking")}
+	\textbf{Polling = The CPU actively queries the status.}
+	
+	\medskip
+	\textbf{Analogy:} The child in the back seat.
+	\begin{itemize}
+		\item The CPU (driver) turns around 1000x per second asking:
+		"Button pressed?" ... "Button pressed?" ... "Button pressed?" ...
+		\item 99.9\% of the time the answer is "No".
+		\item The driver is 100\% busy asking.
+	\end{itemize}
+	\medskip
+	\textbf{Evaluation (for simple things):}
+	\begin{itemize}
+		\item Works great!
+		\item The loop is extremely fast, reaction is immediate.
+		\item CPU is 100\% busy, but the system feels reactive.
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{Concept 1: The "Good" Polling Code (Project 5)}
+	\textbf{The "good" polling loop (Project 5):}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\footnotesize]
+		while (1) {
+			// 1. Query (Poll)
+			if ((GPIOB->IDR & GPIO_IDR_IDR0) == 0) {
+				// 2. Fast action
+				LED_On(0);
+			} else {
+				// 3. Fast action
+				LED_Off(0);
+			}
+			// Loop repeats immediately (in microseconds)
+		}
+	\end{lstlisting}
+	\medskip
+	\textbf{Analysis:}
+	\begin{itemize}
+		\item Actions (\texttt{LED\_On}/\texttt{LED\_Off}) are \textbf{extremely fast}.
+		\item They take only nanoseconds.
+		\item Loop never blocks $\rightarrow$ System is reactive.
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 4 ---
+\begin{frame}
+	\frametitle{The Trap: Polling + Blocking Delays}
+	\textbf{What happens when loop actions are "slow"?}
+	(Your code suggestion)
+	
+	\medskip
+	\textbf{Analogy:} The cook staring at water.
+	\begin{itemize}
+		\item The cook (CPU) checks if button is pressed. (No)
+		\item Starts \texttt{MODE\_CHRISTMAS}.
+		\item First instruction: \texttt{Delay\_ms(300)}.
+		\item \textbf{Cook now stares at clock for 300ms.}
+		\item Is \textbf{deaf, blind and blocked}.
+		\item You (the button) get pressed. \textbf{Cook doesn't notice.}
+		\item Only when *entire* mode (5 seconds) is finished,
+		does he check the button again.
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{The Trap: The "Broken" Polling Code}
+	\textbf{The "broken" polling loop:}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\footnotesize]
+		while (1) {
+			// This query happens only every 5 seconds!
+			if ((GPIOB->IDR & ... ) == 0) {
+				// Blocks 1 second!
+				LED_Mode(MODE_ALARM_FAST, 300); 
+			} else {
+				// Blocks 5 seconds!
+				LED_Mode(MODE_CHRISTMAS, 300); 
+			}
+		}
+	\end{lstlisting}
+	\medskip
+	\textbf{Problem:} Worst-case reaction time to button press
+	is \textbf{5 seconds}. System is "dead".
+\end{frame}
+
+% --- FRAME 5 ---
+\begin{frame}
+	\frametitle{Concept 2: Non-Blocking State Machine}
+	\textbf{Goal:} The \texttt{while(1)} loop must \textit{never} block.
+	Every iteration must finish in microseconds.
+	
+	\medskip
+	\textbf{Analogy:} The professional cook (multitasking).
+	\begin{itemize}
+		\item The cook (CPU) starts the light pattern.
+		\item Turns on \textbf{only the 1st LED}.
+		\item Sets a \textbf{timer} for 300ms.
+		\item \textbf{Immediately leaves} (\texttt{return}).
+		\item The \texttt{while(1)} loop (the "boss") continues.
+		\item The boss checks 1000x per second:
+		\begin{itemize}
+			\item 1. "Was button pressed?" (Reacts immediately!)
+			\item 2. "Did the light pattern timer ring?"
+		\end{itemize}
+		\item After 300ms timer rings. Boss calls the pattern function,
+		which \textbf{switches only the 2nd LED}, resets the timer and
+		\textbf{returns immediately}.
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 6 ---
+\begin{frame}[fragile]
+	\frametitle{The 3 Pillars of a "Non-Blocking" SM}
+	How does the function "remember" where it was?
+	
+	\bigskip
+	\textbf{1. "Progress" (State)}
+	\begin{itemize}
+		\item A variable storing the next step.
+		\item \textbf{\texttt{static int state = 0;}}
+		\item \texttt{static} is key! Variable "survives" function call.
+	\end{itemize}
+	\bigskip
+	\textbf{2. "Memory" (Timestamp)}
+	\begin{itemize}
+		\item When did we set the timer?
+		\item \textbf{\texttt{static uint32\_t last\_tick = 0;}}
+	\end{itemize}
+	\bigskip
+	\textbf{3. "Timer" (Timer Check)}
+	\begin{itemize}
+		\item The "Non-Blocking Delay".
+		\item \textbf{\texttt{if ((g\_msTicks - last\_tick) < delay) \{ return; \}}}
+		\item Most important line! "If time not up, goodbye!"
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 7 ---
+\begin{frame}[fragile]
+	\frametitle{"Non-Blocking" Function (Part 1: Framework)}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+		void LED_Mode_Christmas_Update(void) {
+			// Pillars 1 & 2: "Memory"
+			static uint32_t last_tick = 0; 
+			static int state = 0;
+			const uint32_t delay = 300; 
+			
+			// Pillar 3: "Timer" (Timer Check)
+			if ((g_msTicks - last_tick) < delay) {
+				return; // IMMEDIATE EXIT! (Non-Blocking)
+			}
+			
+			// TIME'S UP! (Timer rang)
+			last_tick = g_msTicks; // Reset timer
+			
+			// Execute logic & remember progress (next slide)
+			// ...
+		}
+	\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{"Non-Blocking" Function (Part 2: Logic)}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\scriptsize]
+		// (Continuation of \texttt{LED_Mode_Christmas_Update})
+		switch (state) {
+			case 0: // Step 0: LED 1 ON
+			LED_PIN_1_PORT->BSRR = LED_PIN_1_BIT_S;
+			break;
+			case 1: // Step 1: LED 2 ON
+			LED_PIN_2_PORT->BSRR = LED_PIN_2_BIT_S;
+			break;
+			// ... (etc. for all 8 steps)
+			case 7: // Step 7: Pause (all OFF)
+			break;
+		}
+		
+		// Remember progress (State)
+		state++; 
+		if (state > 7) { 
+			state = 0; // Start over
+		}
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 8 ---
+\begin{frame}[fragile]
+	\frametitle{The "Boss" (Project 7: Super-State-Machine)}
+	The \texttt{main}-loop becomes the "boss" (dispatcher),
+	deciding which "worker" (mode) is active.
+	
+	\medskip
+	\begin{itemize}
+		\item We need a "global" variable storing
+		the current state of the "boss".
+		\item \texttt{App\_Mode\_t} is our \texttt{enum} from before
+		(\texttt{MODE\_CHRISTMAS}, \texttt{MODE\_ALARM}).
+	\end{itemize}
+	
+	\medskip
+	\textbf{The "Brain" Variable:}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\footnotesize]
+		// Global variable storing "boss status"
+		static App_Mode_t g_current_mode = MODE_CHRISTMAS;
+	\end{lstlisting}
+	\medskip
+	\textbf{Boss Tasks:}
+	\begin{enumerate}
+		\item \textbf{Always:} Check button for \texttt{g\_current\_mode}
+		changes ("HR department").
+		\item \textbf{Always:} Call the \textit{currently active} worker
+		("delegate work").
+	\end{enumerate}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{The "Boss" (\texttt{main} Code)}
+	\begin{lstlisting}[language=C, style=mystyle, basicstyle=\footnotesize]
+		while (1) {
+			// Boss Task 1: Check button (IMMEDIATE reaction)
+			Button_Check_For_Mode_Change(); 
+			
+			// Boss Task 2: Call active worker
+			switch (g_current_mode) {
+				case MODE_CHRISTMAS:
+				LED_Mode_Christmas_Update(); 
+				break;
+				case MODE_ALARM:
+				LED_Mode_Alarm_Update();
+				break;
+			}
+			// Loop repeats immediately (in microseconds)
+		}
+	\end{lstlisting}
+\end{frame}
+
+% --- FRAME 9 ---
+\begin{frame}
+	\frametitle{Comparison: Blocking vs. Non-Blocking (Part 1)}
+	
+	\textbf{Blocking (with \texttt{Delay\_ms})}
+	\begin{itemize}
+		\item \textbf{Analogy:} Cook stares at egg timer for 10 minutes.
+		\item \textbf{CPU Load:} 100\% (heats up).
+		\item \textbf{Reactivity:} \textbf{Catastrophic}. Reaction
+		(e.g., to button) takes seconds.
+		\item \textbf{Multitasking:} \textbf{Impossible}. Only
+		one thing can happen.
+		\item \textbf{Complexity:} Very simple to write (linear).
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Comparison: Blocking vs. Non-Blocking (Part 2)}
+	
+	\textbf{Non-Blocking (State Machine)}
+	\begin{itemize}
+		\item \textbf{Analogy:} Professional cook with 5 timers
+		reacting to guests between tasks.
+		\item \textbf{CPU Load:} < 1\% (can use \texttt{\_\_WFI} and sleep).
+		\item \textbf{Reactivity:} \textbf{Immediate}. Reaction
+		in microseconds.
+		\item \textbf{Multitasking:} \textbf{Built-in}. The "boss"
+		can manage 10 "workers" (lights, buttons, UART, ...).
+		\item \textbf{Complexity:} \textbf{Very high} initially (must
+		learn to "think in timers").
+	\end{itemize}
+\end{frame}
+
+% --- FRAME 10 ---
+\begin{frame}
+	\frametitle{Conclusion}
+	\begin{itemize}
+		\item \textbf{Blocking Delays (\texttt{Delay\_ms})} are the
+		\textbf{archenemy} of every reactive firmware.
+		\item \textbf{State Machines} (Non-Blocking) are the
+		\textbf{only} way to control multiple things "simultaneously"
+		and reactively.
+	\end{itemize}
+\end{frame}
+\end{document}
