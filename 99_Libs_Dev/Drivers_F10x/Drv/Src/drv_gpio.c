@@ -1,11 +1,11 @@
-#include "drv_gpio.h" // Einbinden der Header
+#include "drv_gpio.h" // Include header
 
 /**
- * @brief Hilfsfunktion, um den Takt für einen Port zu aktivieren
- * Wird von drv_gpio_init aufgerufen
+ * @brief Helper function to enable the clock for a port
+ * Called by drv_gpio_init
  */
 static void drv_gpio_enable_port_clock(GPIO_TypeDef* port){
-	// RCC->APB2ENR Register im RM0008 Rev-21 8.3.7
+	// RCC->APB2ENR register in RM0008 Rev-21 8.3.7
 	if (port == GPIOA){
 		RCC->APB2ENR |= RCC_APB2ENR_IOPAEN;
 	} else if (port == GPIOB){
@@ -18,46 +18,46 @@ static void drv_gpio_enable_port_clock(GPIO_TypeDef* port){
 }
 
 /**
- * @brief Implementierung der GPIO-Initialisierung.
+ * @brief Implementation of GPIO initialization.
  */
 void drv_gpio_init(GPIO_TypeDef* port, uint8_t pin_num, drv_gpio_mode_t mode){
-	// 1. Pincheck: Pinnummer muss immer valide sein. (0-15)
+	// 1. Pin check: pin number must always be valid (0–15)
 	if (pin_num > 15){
 		return;
 	}
 
-	// 2. Takt aktivieren !!! WICHTIG !!!
+	// 2. Enable clock !!! IMPORTANT !!!
 	drv_gpio_enable_port_clock(port);
 
-	// 3. Die CRL/CRH-Logik (F1 spezifisch) Pin von 0-7 sind CRL und von 8-15 CRH
-	volatile uint32_t* cr_reg; // Zeiger auf CRL oder CRH
+	// 3. CRL/CRH logic (F1 specific) Pins 0–7 use CRL and 8–15 use CRH
+	volatile uint32_t* cr_reg; // Pointer to CRL or CRH
 	uint8_t cr_pin_pos = pin_num;
 	if (pin_num < 8){
-		// Pin 0-7 CRL Register RM0008 Rev-21 9.2.1
+		// Pins 0–7: CRL register RM0008 Rev-21 9.2.1
 		cr_reg = &port->CRL;
 	}else{
-		// Pin 8-15 CRH Register RM0008 Rev-21 9.2.2
+		// Pins 8–15: CRH register RM0008 Rev-21 9.2.2
 		cr_reg = &port->CRH;
-		cr_pin_pos -= 8; // Pin 8 wird zu Position 0 im CRH
+		cr_pin_pos -= 8;  // Pin 8 becomes position 0 in CRH
 	}
 
-	// 4 Register Operation (Read-Modify-Write)
-	uint32_t cnf_mode_bits = (uint32_t)mode; // Die Enum-Werte sind schon als 4-Bit Maske definiert
-	uint8_t shift = cr_pin_pos * 4;		// 4 Bits pro Pin
-	uint32_t mask = 0b1111U << shift;	// Maske, um die 4 alten Bits zu löschen. (Wichtig um den gewünschten Zustand korrekt zu setzen.)
+	// 4. Register operation (read-modify-write)
+	uint32_t cnf_mode_bits = (uint32_t)mode; // Enum values are already defined as 4-bit masks
+	uint8_t shift = cr_pin_pos * 4;		// 4 bits per pin
+	uint32_t mask = 0b1111U << shift;	// Mask to clear the old 4 bits (important to correctly set the desired state)
 
-	// Um den Read-Modify-Write nicht zu stören werden in diesem Schritt die Interrupts verboten
+	// To avoid disturbing the read-modify-write operation, interrupts are disabled in this step
 	__disable_irq();
 
 	uint32_t reg_val = *cr_reg;
-	reg_val &= ~mask;						// Löschen der 4 alten Bits
-	reg_val |= (cnf_mode_bits << shift);	// Setze die 4 neuen Bits
-	*cr_reg = reg_val;						// Zurück ins Register schreiben
+	reg_val &= ~mask;						// Clear the old 4 bits
+	reg_val |= (cnf_mode_bits << shift);	// Set the new 4 bits
+	*cr_reg = reg_val;						// Write back to the register
 
-	__enable_irq();  // Interrupts wieder erlauben
+	__enable_irq();   // Re-enable interrupts
 
-	// 5. Sonderfall Input mit Pull-Up oder Pull-Down
-	// F1 Spezifisch
+	// 5. Special case: input with pull-up or pull-down
+	// F1 specific
 	if (mode == GPIO_MODE_INPUT_PULL){
 		port->BSRR = (1U << pin_num);
 	}

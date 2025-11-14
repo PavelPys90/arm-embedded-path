@@ -1,13 +1,13 @@
 #ifndef __DRV_GPIO_H
 #define __DRV_GPIO_H
 
-// Import der Register-Definition (GPIO_TypeDef, RCC)
+// Import of register definitions (GPIO_TypeDef, RCC)#include "stm32f1xx.h"
 #include "stm32f1xx.h"
-#include <stdint.h> // Notwendig z.B. für uint8_t usw.
+#include <stdint.h> // Required e.g. for uint8_t etc.
 
 /**
- * GPIO Mode Konfiguration (Anhand des RM0008) - Vorteil man muss die einzelnen Modes nicht mehr nachschlagen
- * Namen sind sauber definiert und können belibig erweitert werden.
+ * GPIO mode configuration (based on RM0008) - Advantage: you no longer have to look up each mode
+ * Names are clearly defined and can be extended arbitrarily.
  */
 typedef enum{
 	// --- Input-Mode ---
@@ -29,35 +29,36 @@ typedef enum{
 	GPIO_MODE_AF_OD_50MHZ			= 0b1111	// AF Open-Drain 50MHz
 }drv_gpio_mode_t;
 
+
 /**
- * @brief Init eines einzelnen GPIO-Pins
- * @breif verschachtelt die komplexe CRL/CRH-Logik des STM32F1
+ * @brief Init of a single GPIO pin
+ * @breif encapsulates the complex CRL/CRH logic of the STM32F1
  *
- * @param port Port des Pins (A,B oder C) z.B. GPIOA <-- Port A
- * @param pin_num Nummer des Pins. (0-15)
- * @param mode Der gewünschte Mode mit drv_gpio_mode_t
+ * @param port Port of the pin (A, B or C) e.g. GPIOA <-- Port A
+ * @param pin_num Pin number (0–15)
+ * @param mode Desired mode using drv_gpio_mode_t
  */
 void drv_gpio_init(GPIO_TypeDef* port, uint8_t pin_num, drv_gpio_mode_t mode);
 /**
- * @brief Setzt einen Pin (zieht ihn auf HIGH). (Inline für max. Geschwindigkeit)
+ * @brief Sets a pin (drives it HIGH). (inline for max. speed)
  */
 static inline void drv_gpio_set(GPIO_TypeDef* port, uint8_t pin_num){
-	// Register BSRR ist atomar (Interrupt-sicher) siehe: "RM0008 Rev-21 9.2.5"
+	// BSRR register is atomic (interrupt-safe) see: "RM0008 Rev-21 9.2.5"
 	port->BSRR = (1U << pin_num);
 }
 /**
- * @brief Löscht einen Pin (zieht ihn auf LOW.)
+ * @brief Clears a pin (drives it LOW.)
  */
 static inline void drv_gpio_clear(GPIO_TypeDef* port, uint8_t pin_num){
-	// Register BRR ist atomar (Interrupt-sicher) siehe: "RM0008 Rev-21 9.2.6"
+	// BRR register is atomic (interrupt-safe) see: "RM0008 Rev-21 9.2.6"
 	port->BRR = (1U << pin_num);
 }
 /**
- * @brief Liest den Input-Status eines Pins. (Inline)
- * @return 1 wenn HIGH, 0 wenn LOW.
+ * @brief Reads the input state of a pin. (inline)
+ * @return 1 if HIGH, 0 if LOW.
  */
 static inline uint8_t drv_gpio_read(GPIO_TypeDef* port, uint8_t pin_num){
-	// Lesen des Input Data Registers (IDR) siehe: "RM0009 Rev-21 9.2.3"
+	// Read the Input Data Register (IDR) see: "RM0009 Rev-21 9.2.3"
 	return (port->IDR & (1U << pin_num)) ? 1U:0U;
 }
 #endif // __DRV_GPIO_H
