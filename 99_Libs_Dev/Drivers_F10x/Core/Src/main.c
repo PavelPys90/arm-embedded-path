@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "drv_gpio.h"
+#include "drv_systick.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -64,6 +65,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+	drv_systick_init();
 	drv_gpio_init(GPIOC, 13, GPIO_MODE_OUTPUT_PP_2MHZ);
   /* USER CODE END 1 */
 
@@ -89,6 +91,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  drv_gpio_clear(GPIOC, 13);
+	  drv_systick_delay(500);
+
+	  drv_gpio_set(GPIOC, 13);
+	  drv_systick_delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
