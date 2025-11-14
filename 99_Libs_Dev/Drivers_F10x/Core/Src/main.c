@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
+#include "drv_gpio.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -64,7 +64,7 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	drv_gpio_init(GPIOC, 13, GPIO_MODE_OUTPUT_PP_2MHZ);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
