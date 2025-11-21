@@ -25,7 +25,11 @@ void drv_gpio_init(GPIO_TypeDef* port, uint8_t pin_num, drv_gpio_mode_t mode){
 	if (pin_num > 15){
 		return;
 	}
-
+	// 1.1 Masking for the CR (Configuration Register)
+	// Strip custom "Marker Bit" (Bit 4) because the hardware register only expects 4 bits.
+	// Example: 0b11000 (PullUp) & 0x0F becomes 0b1000 (Hardware Input Pull Code)
+	//          0b01000 (PullDown) & 0x0F also becomes 0b1000 (Hardware Input Pull Code)
+	uint32_t cnf_mode_bits = (uint32_t)mode & 0x0F;
 	// 2. Enable clock !!! IMPORTANT !!!
 	drv_gpio_enable_port_clock(port);
 
@@ -42,7 +46,6 @@ void drv_gpio_init(GPIO_TypeDef* port, uint8_t pin_num, drv_gpio_mode_t mode){
 	}
 
 	// 4. Register operation (read-modify-write)
-	uint32_t cnf_mode_bits = (uint32_t)mode; // Enum values are already defined as 4-bit masks
 	uint8_t shift = cr_pin_pos * 4;		// 4 bits per pin
 	uint32_t mask = 0b1111U << shift;	// Mask to clear the old 4 bits (important to correctly set the desired state)
 
@@ -58,7 +61,12 @@ void drv_gpio_init(GPIO_TypeDef* port, uint8_t pin_num, drv_gpio_mode_t mode){
 
 	// 5. Special case: input with pull-up or pull-down
 	// F1 specific
-	if (mode == GPIO_MODE_INPUT_PULL){
+	if (mode == GPIO_MODE_INPUT_PULL_UP){
+		// Setting ORD  bit to 1 activates Pull-up
 		port->BSRR = (1U << pin_num);
+	}
+	else if (mode == GPIO_MODE_INPUT_PULL_DOWN) {
+		// Setting ODR bit to 0 activates Pull-Down
+		port->BRR = (1U << pin_num);
 	}
 }

@@ -13,7 +13,8 @@ typedef enum{
 	// --- Input-Mode ---
 	GPIO_MODE_INPUT_ANALOG			= 0b0000, 	// Analog
 	GPIO_MODE_INPUT_FLOATING 		= 0b0100, 	// Input Floating (default)
-	GPIO_MODE_INPUT_PULL 			= 0b1000, 	// Input, Pull-Up/Pull-Down
+	GPIO_MODE_INPUT_PULL_DOWN 		= 0b01000, 	// Input, Pull-Down Hardware-Code 1000 (0x8), Marker-Bit is 0
+	GPIO_MODE_INPUT_PULL_UP			= 0b11000,	// Input, Pull-Up Hardware-Cpde 1000 (0x89, Marker-Bit is 1
 
 	// --- Output-Mode
 	GPIO_MODE_OUTPUT_PP_10MHZ 		= 0b0001, 	// Output Push-Pull 10MHz
@@ -60,6 +61,28 @@ static inline void drv_gpio_clear(GPIO_TypeDef* port, uint8_t pin_num){
 static inline uint8_t drv_gpio_read(GPIO_TypeDef* port, uint8_t pin_num){
 	// Read the Input Data Register (IDR) see: "RM0009 Rev-21 9.2.3"
 	return (port->IDR & (1U << pin_num)) ? 1U:0U;
+}
+
+/**
+ * @brief Toggles a pin state (High -> Low or Low -> High).
+ * @brief Uses XOR operation on the ODR register.
+ */
+static inline void drv_gpio_toggle(GPIO_TypeDef* port, uint8_t pin_num){
+	port->ODR ^= (1U << pin_num);
+}
+
+/**
+ * @brief Writes a logical state (0 or 1) to a pin.
+ * @param state 0 for Low, >0 for High.
+ */
+static inline void drv_gpio_write(GPIO_TypeDef* port, uint8_t pin_num, uint8_t state) {
+    if (state) {
+        // Write 1 to Bit Set Reset Register (Sets the pin High)
+        port->BSRR = (1U << pin_num);
+    } else {
+        // Write 1 to Bit Reset Register (Resets the pin Low)
+        port->BRR = (1U << pin_num);
+    }
 }
 #endif // __DRV_GPIO_H
 
