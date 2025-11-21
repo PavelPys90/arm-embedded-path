@@ -1,93 +1,93 @@
 #include "drv_uart.h"
-#include "drv_gpio.h"	// BRAUCHEN GPIO-TREIBER!
+#include "drv_gpio.h"	// NEED GPIO DRIVER!
 
 /**
- * @brief Private Funktion: Aktiviert Clocks und konfiguriert Pins
- * basierend auf dem gewählten UART-Port.
+ * @brief Private function: Activates clocks and configures pins
+ * based on the selected UART port.
  */
 static void drv_uart_gpio_init(USART_TypeDef* instance){
 	if (instance == USART1){
-		// 1. Clocks aktivieren
+		// 1. Enable clocks
 		RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_AFIOEN;		// (RM0008 Rev-21 8.3.7)
 		RCC->APB2ENR |= RCC_APB2ENR_USART1EN;							// (RM0008 Rev-21 8.3.7)
 
-		// 2. Pins konfigurieren (mit drv_gpio!)
+		// 2. Configure pins (with drv_gpio!)
 		// PA9 (TX) = Alternate Function Push-Pull, 50MHz
 		drv_gpio_init(GPIOA, 9, GPIO_MODE_AF_PP_50MHZ);
 		// PA10 (RX) = Input Floating
 		drv_gpio_init(GPIOA, 10, GPIO_MODE_INPUT_FLOATING);
 	}else if (instance == USART2){
-		// 1. Clocks aktivieren
+		// 1. Enable clocks
 		RCC->APB2ENR |= RCC_APB2ENR_IOPAEN | RCC_APB2ENR_AFIOEN;		// (RM0008 Rev-21 8.3.7)
 		RCC->APB1ENR |= RCC_APB1ENR_USART2EN;							// (RM0008 Rev-21 8.3.8)
 
-		// 2. Pins konfigurieren
+		// 2. Configure pins
 		// PA2 (TX) = Alternate Function Push-Pull, 50MHz
 		drv_gpio_init(GPIOA, 2, GPIO_MODE_AF_PP_50MHZ);
 		// PA3 (RX) = Input Floating
 		drv_gpio_init(GPIOA, 3, GPIO_MODE_INPUT_FLOATING);
 	}
-	// (hier könnte man USART3 etc. hinzufügen)
+	// (USART3 etc. can be added here)
 }
 
 /**
- * @brief Initialisiert einen UART-Port.
+ * @brief Initializes a UART port.
  */
 void drv_uart_init(USART_TypeDef* instance, uint32_t baud){
-	// 1. GPIOs und Clocks für diesen Port initialisieren
+	// 1. Initialize GPIOs and clocks for this port
 	drv_uart_gpio_init(instance);
 
-	// 2. Taktfrequenz für die Baudraten-Berechnung ermitteln
-	//    *** HIER IST DIE LOGIK ***
+	// 2. Determines clock frequency for baud rate calculation
+	//    *** CLOCK SELECTION LOGIC ***
 	uint32_t pclk = 0;
 	if (instance == USART1){
-		// USART1 hängt an PCLK2 (der schneller ist)
-		//  PCLK2 = SystemCoreClock, was in
-		//  bsp_clock-Treiber der Fall ist, z.B. bei 72MHz)
+		// USART1 connects to PCLK2 (faster clock)
+		//  PCLK2 = SystemCoreClock, as configured in
+		//  bsp_clock driver (e.g., at 72MHz)
 		pclk = SystemCoreClock;
 	}
 	else{
-		// USART2, 3, 4, 5 hängen an PCLK1 (der langsamer ist)
-		// (Im 72MHz-Profil war PCLK1 = HCLK/2 = 36MHz)
-		// Die CMSIS-Variable SystemCoreClock ist HCLK.
-		// Man muss die Prescaler-Bits lesen (oder einfach wissen):
+		// USART2, 3, 4, 5 connect to PCLK1 (slower clock)
+		// (In the 72MHz profile, PCLK1 = HCLK/2 = 36MHz)
+		// The CMSIS variable SystemCoreClock represents HCLK.
+		// Prescaler bits must be read (or known):
 
-		// Einfache (aber korrekte) Annahme für unser 72MHz-Profil:
+		// Simple (but correct) assumption for our 72MHz profile:
 		if (SystemCoreClock == 72000000U){
-			pclk = SystemCoreClock / 2; // PCLK1 ist 36MHz
+			pclk = SystemCoreClock / 2; // PCLK1 is 36MHz
 		}
 		else{
-			// Für 16MHz oder 8MHz Profile war PCLK1 = HCLK
+			// For 16MHz or 8MHz profiles, PCLK1 = HCLK
 			pclk = SystemCoreClock;
 		}
 	}
-	// 3. Baudrate berechnen (Die Formel aus RM0008)
-	//    BRR = PCLK / (16 * Baudrate)
-	//    Runden kaufmännisch, um den Fehler zu minimieren:
+	// 3. Calculates baud rate (formula from RM0008)
+	//    BRR = PCLK / (16 * Baud rate)
+	//    Rounds to minimize error:
 	uint32_t uartdiv = (pclk + (baud / 2U)) / baud;
 
-	// 4. BRR (Baud Rate Register) setzen
-	//    Die unteren 4 Bits sind die Fraktion, der Rest die Mantisse
-	instance->BRR = (uartdiv & 0xFFF0) | ((uartdiv & 0xFU) >> 0); // Kompakte Version
+	// 4. Sets BRR (Baud Rate Register)
+	//    Lower 4 bits are the fraction, remaining bits are the mantissa
+	instance->BRR = (uartdiv & 0xFFF0) | ((uartdiv & 0xFU) >> 0); // Compact version
 
-	// 5. UART aktivieren (UE=UART En, TE=Tx En, RE=Rx En)
+	// 5. Enables UART (UE=UART Enable, TE=Tx Enable, RE=Rx Enable)
 	instance->CR1 = USART_CR1_UE | USART_CR1_TE | USART_CR1_RE;
 }
 
 /**
- * @brief Sendet ein einzelnes Zeichen (blockierend).
+ * @brief Sends a single character (blocking).
  */
 void drv_uart_send_char(USART_TypeDef* instance, char c){
-	// Warten, bis das "Transmit Data Register" (DR) leer ist (TXE-Flag)
+	// Waits until the "Transmit Data Register" (DR) is empty (TXE flag)
 	while ((instance->SR & USART_SR_TXE) == 0U) {
-	        // Warte-Schleife (blocking)
+	        // Waiting loop (blocking)
 	}
-	// Das Daten-Byte in das Register schreiben
+	// Writes the data byte to the register
 	instance->DR = (uint32_t)c;
 }
 
 /**
- * @brief Sendet einen String (blockierend).
+ * @brief Sends a string (blocking).
  */
 void drv_uart_send_string(USART_TypeDef* instance, const char* s){
 	while (*s != '\0') {

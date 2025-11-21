@@ -13,7 +13,7 @@ void drv_exti_init(GPIO_TypeDef* port, uint8_t pin_num, drv_exti_trigger_t trigg
 	// Default Pull-Up (Button - GND)
 	drv_gpio_init(port,pin_num, GPIO_MODE_INPUT_PULL_UP);
 
-	// 3. Enable AFIO clock (Important for F1!)
+	// 3. Enables AFIO clock (Important for F1)
 	RCC->APB2ENR |= RCC_APB2ENR_AFIOEN;				// RM0008 Rev-21 7.3.7
 
 	// 4. Mapping for AFIO configuration
@@ -23,11 +23,11 @@ void drv_exti_init(GPIO_TypeDef* port, uint8_t pin_num, drv_exti_trigger_t trigg
 	else if (port == GPIOC) port_code = 2;				// 0010
 	else if (port == GPIOD) port_code = 3;				// 0011
 
-	// AFIO_EXTICR have 4 Registers (0-3), every control 4 pins.
+	// AFIO_EXTICR has 4 registers (0-3), each controls 4 pins.
 	uint8_t reg_idx = pin_num / 4;
 	uint8_t bit_pos = (pin_num % 4)*4;
 
-	// Clear and set the bits
+	// Clears and sets the bits
 	AFIO->EXTICR[reg_idx] &= ~(0xF << bit_pos);			// RM0008 Rev-21 9.4.3 - 9.4.6
 	AFIO->EXTICR[reg_idx] |= (port_code << bit_pos);	// RM0008 Rev-21 9.4.3 - 9.4.6
 
@@ -44,7 +44,7 @@ void drv_exti_init(GPIO_TypeDef* port, uint8_t pin_num, drv_exti_trigger_t trigg
 		EXTI->FTSR &= ~(1U << pin_num);					// RM0008 Rev-21 10.3.4
 	}
 
-	// 6. Enable Interrupt (Set Mask)
+	// 6. Enables Interrupt (Sets Mask)
 	EXTI->IMR |= (1U << pin_num);						// RM0008 Rev-21 10.3.1
 
 	// 7. NVIC (Configure CPU Core)
@@ -62,16 +62,16 @@ void drv_exti_init(GPIO_TypeDef* port, uint8_t pin_num, drv_exti_trigger_t trigg
 }
 
 
-// The manager that is called when it rings.
+// The handler that is called when the interrupt triggers.
 // IMPORTANT: 'static' REMOVED so it can be called from stm32f1xx_it.c!
 void drv_exti_irq_handler(uint8_t pin_num) {
-    // 1. Check: Did this pin really trigger? (Pending Register)
+    // 1. Checks if this pin triggered (Pending Register)
     if (EXTI->PR & (1U << pin_num)) {
 
         // 2. IMPORTANT: Clear flag (by writing a 1!)
         EXTI->PR = (1U << pin_num);
 
-        // 3. Call callback
+        // 3. Calls callback
         if (g_exti_callbacks[pin_num] != 0) {
             g_exti_callbacks[pin_num]();
         }

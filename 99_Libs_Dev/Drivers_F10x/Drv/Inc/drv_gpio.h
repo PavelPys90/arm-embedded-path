@@ -1,12 +1,12 @@
 #ifndef __DRV_GPIO_H
 #define __DRV_GPIO_H
 
-// Import of register definitions (GPIO_TypeDef, RCC)#include "stm32f1xx.h"
+// Import of register definitions (GPIO_TypeDef, RCC)
 #include "stm32f1xx.h"
-#include <stdint.h> // Required e.g. for uint8_t etc.
+#include <stdint.h> // Required for uint8_t etc.
 
 /**
- * GPIO mode configuration (based on RM0008) - Advantage: you no longer have to look up each mode
+ * GPIO mode configuration (based on RM0008) - Advantage: eliminates the need to look up each mode
  * Names are clearly defined and can be extended arbitrarily.
  */
 typedef enum{

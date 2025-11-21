@@ -1,32 +1,32 @@
 #include "drv_systick.h"
-// Private, globale Tick-Variable.
-// 'static' = nur in dieser Datei sichtbar.
-// 'volatile' = WICHTIG! Sagt dem Compiler, dass sich diese Variable
-//              jederzeit (durch einen Interrupt) ändern kann.
+// Private, global tick variable.
+// 'static' = visible only in this file.
+// 'volatile' = IMPORTANT! Tells the compiler that this variable
+//              can change at any time (through an interrupt).
 static volatile uint32_t g_ms_ticks = 0;
 
 /**
- * @brief Initialisiert den SysTick für 1ms Ticks.
+ * @brief Initializes the SysTick for 1ms ticks.
  */
 void drv_systick_init(void){
-	// Ruft die CMSIS-Core-Funktion auf.
-	// SystemCoreClock / 1000 = Ticks für 1ms.
-	// Diese Funktion MUSS wissen, wie schnell der Takt ist!
+	// Calls the CMSIS-Core function.
+	// SystemCoreClock / 1000 = Ticks for 1ms.
+	// The function requires knowledge of the clock speed.
 	if (SysTick_Config(SystemCoreClock / 1000U) != 0U){
-		// Der Fehler, sollte nie passieren!
+		// Error condition that should never occur
 		while(1);
 	}
-	// Setze die Interrupt-Priorität (optional, aber gute Praxis)
-	// (Prioritäten auf F1 sind komplex, 0 ist die höchste)
+	// Sets the interrupt priority (optional, but good practice)
+	// (Priorities on F1 are complex, 0 is the highest)
 	NVIC_SetPriority(SysTick_IRQn, 0);
 }
 /**
- * @brief Gibt die aktuellen Ticks "atomar" zurück.
+ * @brief Returns the current ticks "atomically".
  */
 uint32_t drv_systick_get_ticks(void){
 	uint32_t ticks;
-	// "Kritischer Abschnitt": Verhindert, dass der Interrupt
-	// zuschlägt, während die Variable gelesen wird.
+	// Critical section: Prevents the interrupt
+	// from triggering while reading the variable.
 	__disable_irq();
 	ticks = g_ms_ticks;
 	__enable_irq();
@@ -34,20 +34,20 @@ uint32_t drv_systick_get_ticks(void){
 	return ticks;
 }
 /**
- * @brief Blockierende Delay-Funktion.
+ * @brief Blocking delay function.
  */
 void drv_systick_delay(uint32_t delay_ms){
 	uint32_t start_time = drv_systick_get_ticks();
 
-	// Warte, bis die Differenzzeit abgelaufen ist
-	// (Diese Schleife blockiert die CPU!)
+	// Waits until the time difference has elapsed
+	// (This loop blocks the CPU)
 	while ((drv_systick_get_ticks() - start_time) < delay_ms){
-		// Nichts tun (oder __WFI() für "Wait For Interrupt")
-		// __WFI(); // strom sparend
+		// Does nothing (or __WFI() for "Wait For Interrupt")
+		// __WFI(); // Power saving
 	}
 }
 /**
- * @brief Der "Callback", der vom echten ISR aufgerufen wird.
+ * @brief The "callback" that is called by the real ISR.
  */
 void drv_systick_tick_handler(void){
 	g_ms_ticks++;

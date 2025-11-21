@@ -21,7 +21,7 @@ static void drv_gpio_enable_port_clock(GPIO_TypeDef* port){
  * @brief Implementation of GPIO initialization.
  */
 void drv_gpio_init(GPIO_TypeDef* port, uint8_t pin_num, drv_gpio_mode_t mode){
-	// 1. Pin check: pin number must always be valid (0–15)
+	// 1. Pin check: Ensures pin number is valid (0–15)
 	if (pin_num > 15){
 		return;
 	}
@@ -47,26 +47,25 @@ void drv_gpio_init(GPIO_TypeDef* port, uint8_t pin_num, drv_gpio_mode_t mode){
 
 	// 4. Register operation (read-modify-write)
 	uint8_t shift = cr_pin_pos * 4;		// 4 bits per pin
-	uint32_t mask = 0b1111U << shift;	// Mask to clear the old 4 bits (important to correctly set the desired state)
+	uint32_t mask = 0b1111U << shift;	// Mask to clear the old 4 bits (ensures correct state configuration)
 
-	// To avoid disturbing the read-modify-write operation, interrupts are disabled in this step
+	// Disables interrupts to prevent disturbance during read-modify-write operation
 	__disable_irq();
 
 	uint32_t reg_val = *cr_reg;
-	reg_val &= ~mask;						// Clear the old 4 bits
-	reg_val |= (cnf_mode_bits << shift);	// Set the new 4 bits
-	*cr_reg = reg_val;						// Write back to the register
+	reg_val &= ~mask;						// Clears the old 4 bits
+	reg_val |= (cnf_mode_bits << shift);	// Sets the new 4 bits
+	*cr_reg = reg_val;						// Writes back to the register
 
-	__enable_irq();   // Re-enable interrupts
+	__enable_irq();   // Re-enables interrupts
 
-	// 5. Special case: input with pull-up or pull-down
-	// F1 specific
+	// 5. Special case: Handles input with pull-up or pull-down (F1 specific)
 	if (mode == GPIO_MODE_INPUT_PULL_UP){
-		// Setting ORD  bit to 1 activates Pull-up
+		// Sets ODR bit to 1 to activate Pull-up
 		port->BSRR = (1U << pin_num);
 	}
 	else if (mode == GPIO_MODE_INPUT_PULL_DOWN) {
-		// Setting ODR bit to 0 activates Pull-Down
+		// Sets ODR bit to 0 to activate Pull-Down
 		port->BRR = (1U << pin_num);
 	}
 }
