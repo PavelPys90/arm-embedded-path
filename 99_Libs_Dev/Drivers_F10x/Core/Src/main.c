@@ -22,6 +22,7 @@
 #include "drv_systick.h"
 #include "bsp_clock.h"
 #include "drv_uart.h"
+#include "drv_exti.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -56,7 +57,14 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void on_button_press(void) {
+    // 1. LED umschalten
+    drv_gpio_toggle(GPIOC, 13);
 
+    // 2. Nachricht senden (Bestätigung)
+    //    (Wir nutzen hier NUR die Sende-Funktion, die wir schon haben!)
+    drv_uart_send_string(USART1, "Button gedrueckt! (EXTI)\r\n");
+}
 /* USER CODE END 0 */
 
 /**
@@ -69,8 +77,6 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	bsp_clock_init(CLOCK_PROFILE_HSE_72MHZ_PLL);
 	drv_systick_init();
-	drv_gpio_init(GPIOC, 13, GPIO_MODE_OUTPUT_PP_2MHZ);
-	drv_uart_init(USART2, 9600);
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -88,22 +94,23 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
-	drv_uart_send_string(USART2, "Hallo von UART2!\r\n");
+	drv_gpio_init(GPIOC, 13, GPIO_MODE_OUTPUT_PP_2MHZ);
+	drv_gpio_write(GPIOC, 13, 1);
 
-	uint32_t last_led_toggle = drv_systick_get_ticks();
+	// UART Init (startet RX Interrupt)
+	drv_uart_init(USART1, 115200);
+
+	// Button Init (startet EXTI Interrupt)
+	// PA0, Fallende Flanke (Drücken), rufe 'on_button_press'
+	drv_exti_init(GPIOA, 0, EXTI_TRIGGER_FALLING, on_button_press);
+
+	drv_uart_send_string(USART1, "System Ready. Druecke Button oder tippe...\r\n");
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if (drv_systick_get_ticks() - last_led_toggle >= 500) {
-	              last_led_toggle = drv_systick_get_ticks();
-	              drv_gpio_set(GPIOC, 13); // LED AUS
-	              drv_uart_send_string(USART2, "Tick (LED AUS)\r\n");
-	          } else if (drv_systick_get_ticks() - last_led_toggle >= 250) {
-	              drv_gpio_clear(GPIOC, 13); // LED AN
-	          }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -116,8 +123,4 @@ int main(void)
 
 /* USER CODE END 4 */
 
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
 

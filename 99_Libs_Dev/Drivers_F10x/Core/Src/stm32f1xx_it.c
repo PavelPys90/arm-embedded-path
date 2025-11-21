@@ -23,6 +23,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "drv_systick.h"
+#include "drv_uart.h"
+#include "drv_exti.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -200,5 +202,27 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /* USER CODE BEGIN 1 */
+// Handler for Pin 0 (e.g. PA0 Button)
+void EXTI0_IRQHandler(void)
+{
+  drv_exti_irq_handler(0);
+}
 
+// Handler for Pin 1
+void EXTI1_IRQHandler(void)
+{
+  drv_exti_irq_handler(1);
+}
+
+// Handler for Pins 10-15 (in case you use PC13 as input)
+void EXTI15_10_IRQHandler(void)
+{
+  // Checks all pins in this group
+  drv_exti_irq_handler(10);
+  drv_exti_irq_handler(11);
+  drv_exti_irq_handler(12);
+  drv_exti_irq_handler(13);
+  drv_exti_irq_handler(14);
+  drv_exti_irq_handler(15);
+}
 /* USER CODE END 1 */
