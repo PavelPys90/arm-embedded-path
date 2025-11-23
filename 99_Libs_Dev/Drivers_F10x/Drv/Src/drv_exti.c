@@ -59,6 +59,9 @@ void drv_exti_init(GPIO_TypeDef* port, uint8_t pin_num, drv_exti_trigger_t trigg
 
 	NVIC_SetPriority(irq_n, 2);	// Medium priority
 	NVIC_EnableIRQ(irq_n);
+
+	// 8. Clear pending flag
+	drv_exti_clear_pending(pin_num);
 }
 
 
@@ -76,4 +79,40 @@ void drv_exti_irq_handler(uint8_t pin_num) {
             g_exti_callbacks[pin_num]();
         }
     }
+}
+
+void drv_exti_enable(uint8_t pin_num, uint8_t enable){
+	if (pin_num > 15) return;
+	if (enable){
+		EXTI->IMR |= (1U << pin_num);		// RM0008 Rev-21 10.3.1
+	}else{
+		EXTI->IMR &= ~(1U << pin_num);		// RM0008 Rev-21 10.3.1
+	}
+}
+
+void drv_exti_clear_pending(uint8_t pin_num){
+	if (pin_num > 15) return;
+	EXTI->PR = (1U << pin_num);				// RM0008 Rev-21 10.3.6
+}
+
+void drv_exti_deinit(uint8_t pin_num) {
+    if (pin_num > 15) return;
+    
+    // 1. Clear callback
+    g_exti_callbacks[pin_num] = NULL;
+    
+    // 4. Reset AFIO EXTICR mapping
+    uint8_t reg_idx = pin_num / 4;
+    uint8_t bit_pos = (pin_num % 4) * 4;
+    AFIO->EXTICR[reg_idx] &= ~(0xF << bit_pos);  // RM0008 Rev-21 9.4.3-9.4.6
+    
+    // 5. Clear trigger configuration (RTSR/FTSR)
+    EXTI->RTSR &= ~(1U << pin_num);  // RM0008 Rev-21 10.3.3
+    EXTI->FTSR &= ~(1U << pin_num);  // RM0008 Rev-21 10.3.4
+    
+    // 6. Disable interrupt mask
+    drv_exti_enable(pin_num, 0);
+    
+    // 8. Clear pending flag
+    drv_exti_clear_pending(pin_num);
 }

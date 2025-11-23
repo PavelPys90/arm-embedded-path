@@ -1,6 +1,10 @@
 #include "drv_uart.h"
 #include "drv_gpio.h"	// NEED GPIO DRIVER!
 
+// Callback storage
+static void (*g_uart1_rx_callback)(uint8_t) = 0;
+static void (*g_uart2_rx_callback)(uint8_t) = 0;
+
 /**
  * @brief Private function: Activates clocks and configures pins
  * based on the selected UART port.
@@ -92,5 +96,56 @@ void drv_uart_send_char(USART_TypeDef* instance, char c){
 void drv_uart_send_string(USART_TypeDef* instance, const char* s){
 	while (*s != '\0') {
 	        drv_uart_send_char(instance, *s++);
+	}
+}
+
+/**
+ * @brief Receives a single character (blocking).
+ */
+char drv_uart_receive_char(USART_TypeDef* instance){
+	// Waits until the "Receive Data Register" is not empty (RXNE flag)
+	while ((instance->SR & USART_SR_RXNE) == 0U) {		// (RM0008 Rev-21 27.6.1)
+		// Waiting loop
+	}
+	// Reads the data
+	return (char)(instance->DR & 0xFF);					// (RM0008 Rev-21 27.6.2)
+}
+
+/**
+ * @brief Enables RX interrupt and registers a callback.
+ */
+void drv_uart_enable_rx_interrupt(USART_TypeDef* instance, void (*callback)(uint8_t data)){
+	// 1. Save callback
+	if (instance == USART1) g_uart1_rx_callback = callback;
+	else if (instance == USART2) g_uart2_rx_callback = callback;
+
+	// 2. Enable RXNE Interrupt in UART
+	instance->CR1 |= USART_CR1_RXNEIE;					// (RM0008 Rev-21 27.6.4)
+
+	// 3. Enable NVIC
+	if (instance == USART1) {
+		NVIC_SetPriority(USART1_IRQn, 2);
+		NVIC_EnableIRQ(USART1_IRQn);
+	} else if (instance == USART2) {
+		NVIC_SetPriority(USART2_IRQn, 2);
+		NVIC_EnableIRQ(USART2_IRQn);
+	}
+}
+
+/**
+ * @brief The manager called by stm32f1xx_it.c
+ */
+void drv_uart_irq_handler(USART_TypeDef* instance){
+	// Check if RXNE is set
+	if (instance->SR & USART_SR_RXNE){					// (RM0008 Rev-21 27.6.1)
+		// Read data (clears RXNE)
+		uint8_t data = (uint8_t)(instance->DR & 0xFF);	// (RM0008 Rev-21 27.6.2)
+
+		// Call callback
+		if (instance == USART1 && g_uart1_rx_callback){
+			g_uart1_rx_callback(data);
+		} else if (instance == USART2 && g_uart2_rx_callback){
+			g_uart2_rx_callback(data);
+		}
 	}
 }

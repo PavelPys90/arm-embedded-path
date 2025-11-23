@@ -22,4 +22,21 @@ void drv_uart_send_char(USART_TypeDef* instance, char c);
  */
 void drv_uart_send_string(USART_TypeDef* instance, const char* s);
 
+/**
+ * @brief Receives a single character (blocking).
+ */
+char drv_uart_receive_char(USART_TypeDef* instance);
+
+/**
+ * @brief Enables RX interrupt and registers a callback.
+ * @param instance  The UART port
+ * @param callback  Function to call when a byte is received
+ */
+void drv_uart_enable_rx_interrupt(USART_TypeDef* instance, void (*callback)(uint8_t data));
+
+/**
+ * @brief The manager called by stm32f1xx_it.c
+ */
+void drv_uart_irq_handler(USART_TypeDef* instance);
+
 #endif // __DRV_UART_H

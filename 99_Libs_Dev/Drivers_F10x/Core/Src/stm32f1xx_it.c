@@ -225,4 +225,14 @@ void EXTI15_10_IRQHandler(void)
   drv_exti_irq_handler(14);
   drv_exti_irq_handler(15);
 }
+
+void USART1_IRQHandler(void)
+{
+	drv_uart_irq_handler(USART1);
+}
+
+void USART2_IRQHandler(void)
+{
+	drv_uart_irq_handler(USART2);
+}
 /* USER CODE END 1 */

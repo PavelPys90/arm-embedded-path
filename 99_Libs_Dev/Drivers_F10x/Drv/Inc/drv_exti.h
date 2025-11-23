@@ -26,4 +26,17 @@ void drv_exti_init(GPIO_TypeDef* port, uint8_t pin_num, drv_exti_trigger_t trigg
  */
 void drv_exti_irq_handler(uint8_t pin_num);
 
+/**
+ * @brief Enables or disables an EXTI interrupt temporarily.
+ * @param pin_num   The pin number (0-15)
+ * @param enable    1 = enable, 0 = disable
+ */
+void drv_exti_enable(uint8_t pin_num, uint8_t enable);
+
+/**
+ * @brief Clears the pending flag of an EXTI interrupt manually.
+ * @param pin_num   The pin number (0-15)
+ */
+void drv_exti_clear_pending(uint8_t pin_num);
+
 #endif // __DRV_EXTI_H
