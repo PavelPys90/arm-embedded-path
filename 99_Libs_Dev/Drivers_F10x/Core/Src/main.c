@@ -21,8 +21,9 @@
 #include "drv_gpio.h"
 #include "drv_systick.h"
 #include "bsp_clock.h"
-#include "drv_uart.h"
-#include "drv_exti.h"
+//#include "drv_uart.h"
+//#include "drv_adc.h"
+//#include "drv_pwm.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -57,14 +58,7 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void on_button_press(void) {
-    // 1. LED umschalten
-    drv_gpio_toggle(GPIOC, 13);
 
-    // 2. Nachricht senden (Bestätigung)
-    //    (Wir nutzen hier NUR die Sende-Funktion, die wir schon haben!)
-    drv_uart_send_string(USART1, "Button gedrueckt! (EXTI)\r\n");
-}
 /* USER CODE END 0 */
 
 /**
@@ -94,17 +88,11 @@ int main(void)
 
   /* Initialize all configured peripherals */
   /* USER CODE BEGIN 2 */
+	// Status LED Init (PC13)
 	drv_gpio_init(GPIOC, 13, GPIO_MODE_OUTPUT_PP_2MHZ);
-	drv_gpio_write(GPIOC, 13, 1);
+	drv_gpio_write(GPIOC, 13, 1);  // LED off (active low)
 
-	// UART Init (startet RX Interrupt)
-	drv_uart_init(USART1, 115200);
-
-	// Button Init (startet EXTI Interrupt)
-	// PA0, Fallende Flanke (Drücken), rufe 'on_button_press'
-	drv_exti_init(GPIOA, 0, EXTI_TRIGGER_FALLING, on_button_press);
-
-	drv_uart_send_string(USART1, "System Ready. Druecke Button oder tippe...\r\n");
+	
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -114,6 +102,35 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	/*
+	// Read ADC value from potentiometer
+	uint16_t adc_value = drv_adc_read(ADC1, ADC_CHANNEL_0);
+
+	// Convert ADC value (0-4095) to PWM duty cycle (0-100%)
+	uint8_t duty_cycle = (adc_value * 100) / 4095;
+
+	// Set PWM duty cycle (controls LED brightness)
+	drv_pwm_set_duty(TIM2, PWM_CHANNEL_2, duty_cycle);
+
+	// Convert values to strings for UART output
+	char adc_str[6];
+	char duty_str[4];
+	uint_to_string(adc_value, adc_str);
+	uint_to_string(duty_cycle, duty_str);
+
+	// Send values over UART
+	drv_uart_send_string(USART1, "ADC: ");
+	drv_uart_send_string(USART1, adc_str);
+	drv_uart_send_string(USART1, " | PWM: ");
+	drv_uart_send_string(USART1, duty_str);
+	drv_uart_send_string(USART1, "%\r\n");
+	*/
+
+	// Toggle Status LED (PC13)
+	drv_gpio_toggle(GPIOC, 13);
+
+	// Small delay for readability
+	drv_systick_delay(1000);
   }
   /* USER CODE END 3 */
 }

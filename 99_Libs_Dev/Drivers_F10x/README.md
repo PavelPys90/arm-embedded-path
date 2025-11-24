@@ -25,6 +25,8 @@ A lightweight, register-based driver library for STM32F1xx microcontrollers. Thi
 | **UART** | Serial Communication | Configurable baud rate, blocking send |
 | **SysTick** | System Timer | 1ms tick, delay functions, millis() equivalent |
 | **EXTI** | External Interrupts | Pin-based interrupts with callbacks |
+| **ADC** | Analog-to-Digital | 12-bit resolution, calibration, blocking read |
+| **PWM** | Pulse Width Modulation | Timer-based, variable frequency & duty cycle |
 
 ## Directory Structure
 
@@ -35,12 +37,16 @@ Drivers_F10x/
 │   │   ├── drv_gpio.h
 │   │   ├── drv_uart.h
 │   │   ├── drv_systick.h
-│   │   └── drv_exti.h
+│   │   ├── drv_exti.h
+│   │   ├── drv_adc.h
+│   │   └── drv_pwm.h
 │   └── Src/          # Source files (.c)
 │       ├── drv_gpio.c
 │       ├── drv_uart.c
 │       ├── drv_systick.c
-│       └── drv_exti.c
+│       ├── drv_exti.c
+│       ├── drv_adc.c
+│       └── drv_pwm.c
 └── README.md
 ```
 
@@ -53,6 +59,8 @@ Drivers_F10x/
 #include "drv_uart.h"
 #include "drv_systick.h"
 #include "drv_exti.h"
+#include "drv_adc.h"
+#include "drv_pwm.h"
 ```
 
 ### 2. GPIO Example
@@ -114,6 +122,32 @@ void button_pressed(void) {
 
 // Initialize button on PA0 with falling edge trigger
 drv_exti_init(GPIOA, 0, EXTI_TRIGGER_FALLING, button_pressed);
+```
+
+### 6. ADC Example
+
+```c
+// Initialize PA0 as Analog Input
+drv_gpio_init(GPIOA, 0, GPIO_MODE_INPUT_ANALOG);
+
+// Initialize ADC1
+drv_adc_init(ADC1);
+
+// Read value (0-4095)
+uint16_t val = drv_adc_read(ADC1, ADC_CHANNEL_0);
+```
+
+### 7. PWM Example
+
+```c
+// Initialize PA1 as Alternate Function Output
+drv_gpio_init(GPIOA, 1, GPIO_MODE_AF_PP_50MHZ);
+
+// Initialize TIM2 Channel 2 at 1kHz
+drv_pwm_init(TIM2, PWM_CHANNEL_2, 1000);
+
+// Set Duty Cycle to 50%
+drv_pwm_set_duty(TIM2, PWM_CHANNEL_2, 50);
 ```
 
 ## Integration into Your Project
@@ -188,7 +222,7 @@ All drivers reference the **STM32F1 Reference Manual (RM0008 Rev-21)**. Register
 
 ## License
 
-This library is provided as-is for educational and commercial use.
+This project is licensed under the **MIT License** - free to use for educational and commercial purposes.
 
 ## Contributing
 

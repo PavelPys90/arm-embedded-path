@@ -39,4 +39,10 @@ void drv_exti_enable(uint8_t pin_num, uint8_t enable);
  */
 void drv_exti_clear_pending(uint8_t pin_num);
 
+/**
+ * @brief Completely deinitializes an EXTI interrupt.
+ * @param pin_num   The pin number (0-15)
+ */
+void drv_exti_deinit(uint8_t pin_num);
+
 #endif // __DRV_EXTI_H
