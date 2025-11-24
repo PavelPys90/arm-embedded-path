@@ -5,31 +5,31 @@
 #include <stdint.h>
 
 /**
- * @brief Initialisiert den SysTick-Timer für 1ms-Interrupts.
- * @brief Verlässt sich darauf, dass 'SystemCoreClock' (aus system_stm32f1xx.c)
- * durch einen Aufruf von bsp_clock_init()
- * oder SystemCoreClockUpdate() korrekt gesetzt wurde.
+ * @brief Initializes the SysTick timer for 1ms interrupts.
+ * @brief Relies on 'SystemCoreClock' (from system_stm32f1xx.c)
+ * being correctly set by a call to bsp_clock_init()
+ * or SystemCoreClockUpdate().
  */
 void drv_systick_init(void);
 
 /**
- * @brief Gibt die Anzahl der Millisekunden seit dem Start zurück.
- * @brief Dies ist eine analoge 'millis()'-Funktion.
+ * @brief Returns the number of milliseconds since startup.
+ * @brief This is an analogous 'millis()' function.
  * @return uint32_t Ticks in ms.
  */
 uint32_t drv_systick_get_ticks(void);
 
 /**
- * @brief Eine einfache, blockierende Delay-Funktion.
- * @brief Besser ist es, non-blocking mit drv_systick_get_ticks() zu arbeiten!
- * @param delay_ms Die zu wartende Zeit in Millisekunden.
+ * @brief A simple, blocking delay function.
+ * @brief It's better to work non-blocking with drv_systick_get_ticks()!
+ * @param delay_ms The time to wait in milliseconds.
  */
 void drv_systick_delay(uint32_t delay_ms);
 
 /**
- * @brief Die "Callback"-Funktion, die vom SysTick-Interrupt aufgerufen wird.
- * @brief Diese Funktion MUSS vom globalen 'SysTick_Handler' in
- * stm32f1xx_it.c aufgerufen werden.
+ * @brief The "callback" function that is called by the SysTick interrupt.
+ * @brief This function MUST be called by the global 'SysTick_Handler' in
+ * stm32f1xx_it.c.
  */
 void drv_systick_tick_handler(void);
 
